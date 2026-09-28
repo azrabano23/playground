@@ -66,15 +66,6 @@ struct Outcome {
     double value;
 };
 
-static Outcome run(const Solver& s, const Case& c) {
-    try {
-        double v = s.f(c);
-        return {std::isfinite(v), v};
-    } catch (std::exception&) {
-        return {false, 0.0};
-    }
-}
-
 static double percentile(std::vector<double> v, double p) {
     if (v.empty())
         return NAN;
