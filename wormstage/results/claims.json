@@ -1,0 +1,16 @@
+[
+ {"id": "l1_ash_p", "experiment": "develop", "metric": "brain_p", "value": 0.014, "tol": 0.0015,
+  "params": {"stage": "witvliet1", "stimulus": "ASH"}, "text": "ASH reversal bias at birth, p vs shuffles"},
+ {"id": "l1_ash_reverses", "experiment": "develop", "metric": "forward_bl_s", "value": -0.173, "tol": 0.001,
+  "params": {"stage": "witvliet1", "stimulus": "ASH"}, "text": "newborn-brain robot backs away from ASH"},
+ {"id": "tonic0", "experiment": "ablate_tonic", "metric": "undulating", "value": 0, "tol": 0,
+  "params": {"ventral_tonic": 0.0, "K": 40.0}, "text": "no extrasynaptic drive: no locomotion"},
+ {"id": "tonic1_sym", "experiment": "ablate_tonic", "metric": "symmetry", "value": 0.907, "tol": 0.001,
+  "params": {"ventral_tonic": 1.0, "K": 40.0}, "text": "full drive: symmetric undulation"},
+ {"id": "water_f", "experiment": "medium", "metric": "freq_hz", "value": 2.63, "tol": 0.01,
+  "params": {"stage": "witvliet8", "K": 1.5}, "text": "adult circuit, water-like"},
+ {"id": "agar_f", "experiment": "medium", "metric": "freq_hz", "value": 0.974, "tol": 0.01,
+  "params": {"stage": "witvliet8", "K": 40.0}, "text": "adult circuit, agar-like"},
+ {"id": "four_servos", "experiment": "design_witvliet8", "metric": "forward_bl_s", "value": 0.234, "tol": 0.001,
+  "params": {"n_links": 5, "field": 0.75, "w_sr": 1.0, "k_joint": 0.05}, "text": "4-servo worm-brained snake"}
+]
