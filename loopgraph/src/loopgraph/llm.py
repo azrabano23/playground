@@ -17,7 +17,8 @@ from typing import Any, Sequence
 from .agents import Decider, Objective, ParetoDecider, Proposal, Space, _key, _tried, validate
 from .ledger import Entry
 
-MODEL = "claude-opus-5"
+# model id comes from the environment so the harness is not tied to one release
+MODEL = os.environ.get("LOOPGRAPH_LLM_MODEL", "")
 
 SYSTEM = """You are the planning agent in an automated research harness.
 You choose the next experiments to run. Each experiment is one point in a
@@ -94,7 +95,8 @@ class LLMDecider:
             import anthropic  # noqa: F401
         except ImportError:
             return False
-        return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+        has_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+        return bool(has_key and os.environ.get("LOOPGRAPH_LLM_MODEL"))
 
     def _client_or_none(self):
         if self._client is not None:
@@ -110,6 +112,9 @@ class LLMDecider:
     def _ask(self, space: Space, history: Sequence[Entry], k: int) -> list[dict[str, Any]]:
         client = self._client_or_none()
         if client is None:
+            return []
+        if not self.model:
+            self.last_error = "set LOOPGRAPH_LLM_MODEL"
             return []
         objectives = ", ".join(f"{'maximize' if o.maximize else 'minimize'} {o.metric}"
                                for o in self.objectives)
