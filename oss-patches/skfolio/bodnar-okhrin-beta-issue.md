@@ -30,6 +30,8 @@ With a grand-mean target, `u` is usually larger than `w`, so `alpha_ + beta_` co
 
 In the first case the average `alpha_ + beta_` is 0.907 with the current code and 1.002 with eq. (7).
 
+The effect is largest with `vol_weighted_target=True`. That target is the S^-1 projection of `ybar` onto the ones vector, so `v == w` and eq. (7) gives `alpha_ + beta_ == 1` exactly. On the S&P 500 test fixture, the current code gives `alpha_ = -0.228` and `beta_ = 0.294`, so `alpha_ + beta_ = 0.067` and `mu_` is shrunk almost to zero. Eq. (7) gives `beta_ = 1.228`.
+
 ### To reproduce
 
 ```python
@@ -38,7 +40,7 @@ from skfolio.datasets import load_sp500_dataset
 from skfolio.preprocessing import prices_to_returns
 from skfolio.moments import ShrunkMu, ShrunkMuMethods
 
-X = prices_to_returns(load_sp500_dataset())
+X = prices_to_returns(load_sp500_dataset().loc["2014":])
 m = ShrunkMu(method=ShrunkMuMethods.BODNAR_OKHRIN).fit(X)
 y = np.asarray(X).mean(axis=0)
 b = m.mu_target_

@@ -20,13 +20,15 @@ It is also what the paper's first-order condition in beta gives: for a fixed alp
 
 With a grand-mean target, `u > w` in practice, so `alpha_ + beta_ < 1` and `mu_` is pulled toward zero instead of toward the target. In a small Monte Carlo (p=20, n=60, 500 draws, the paper's loss `(mu_hat - mu)' Sigma^-1 (mu_hat - mu)`), the current code averages a loss of 0.144 and eq. (7) averages 0.095 when the target is exact. The sample mean alone gives 0.337.
 
+With `vol_weighted_target=True`, `v == w` by construction, so eq. (7) gives `alpha_ + beta_ == 1`. On the S&P 500 test fixture, the current code gives `alpha_ + beta_ = -0.228 + 0.294 = 0.067`, which shrinks `mu_` almost to zero.
+
 ### Fix
 
 One line: use `w` instead of `u`.
 
 ### Tests
 
-- New `TestShrunkMu::test_bodnar_okhrin_matches_reference`, parametrized over `vol_weighted_target`, recomputes `alpha_`, `beta_` and `mu_` directly from eq. (6) and (7).
+- New `TestShrunkMu::test_bodnar_okhrin_matches_reference`, parametrized over `vol_weighted_target`, recomputes `alpha_`, `beta_` and `mu_` directly from eq. (6) and (7). For the vol-weighted target it also checks `alpha_ + beta_ == 1`.
 - Updated the `BODNAR_OKHRIN` regression values in `test_shrinkage_mu`. The other methods are unchanged.
 
 Before the fix (on `main` @ 808b75a):

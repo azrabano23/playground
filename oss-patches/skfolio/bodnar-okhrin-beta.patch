@@ -1,4 +1,4 @@
-From 5d8f09c010b2fa7b08c6b7223f854344a616a2c7 Mon Sep 17 00:00:00 2001
+From cb10ada79477361d529284e3f07fc911593db03a Mon Sep 17 00:00:00 2001
 From: Azra Bano <azrabano.work@gmail.com>
 Date: Mon, 28 Sep 2026 22:46:15 +0000
 Subject: [PATCH] fix(moments): divide the Bodnar-Okhrin-Parolya beta by the
@@ -15,8 +15,8 @@ Add a test that checks alpha_, beta_ and mu_ against eq. (6) and (7)
 and update the regression values.
 ---
  .../moments/expected_returns/_shrunk_mu.py    |  2 +-
- .../test_expected_returns.py                  | 63 +++++++++++++------
- 2 files changed, 44 insertions(+), 21 deletions(-)
+ .../test_expected_returns.py                  | 67 +++++++++++++------
+ 2 files changed, 48 insertions(+), 21 deletions(-)
 
 diff --git a/src/skfolio/moments/expected_returns/_shrunk_mu.py b/src/skfolio/moments/expected_returns/_shrunk_mu.py
 index 9c744c2..285f239 100644
@@ -32,10 +32,10 @@ index 9c744c2..285f239 100644
              case _:  # pragma: no cover
                  raise ValueError(f"method {self.method} is not valid")
 diff --git a/tests/test_moment/test_expected_returns/test_expected_returns.py b/tests/test_moment/test_expected_returns/test_expected_returns.py
-index 357611e..ba2548d 100644
+index 357611e..0974dc1 100644
 --- a/tests/test_moment/test_expected_returns/test_expected_returns.py
 +++ b/tests/test_moment/test_expected_returns/test_expected_returns.py
-@@ -688,30 +688,53 @@ class TestShrunkMu:
+@@ -688,30 +688,57 @@ class TestShrunkMu:
              model.mu_,
              np.array(
                  [
@@ -105,6 +105,10 @@ index 357611e..ba2548d 100644
 +        np.testing.assert_allclose(model.alpha_, alpha)
 +        np.testing.assert_allclose(model.beta_, beta)
 +        np.testing.assert_allclose(model.mu_, alpha * y + beta * b)
++        if vol_weighted_target:
++            # The target is the S^-1 projection of y on the ones vector, so the
++            # intensities sum to one.
++            np.testing.assert_allclose(model.alpha_ + model.beta_, 1.0)
 +
      def test_james_stein_outputs_are_real(self, X):
          model = ShrunkMu(method=ShrunkMuMethods.JAMES_STEIN)
