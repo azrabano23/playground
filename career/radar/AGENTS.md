@@ -46,7 +46,14 @@ Azra. Workers return structured JSON, not prose.
 3. `ArtifactData get` `meta/private` (phone, grad date, pipeline, do-not-resurface list).
 4. `ArtifactData list` collection `jobs` (all pages) and `programs`, and `get` `meta/radar`.
    Build the set of known posting URLs and companies to exclude.
-5. **Network:** the container's shell proxy blocks most job boards (greenhouse, ashby, lever,
+5. **Exa (preferred when available).** If `mcp__exa__*` tools are loaded, use them first.
+   `web_search_exa` with `category:people <Company> Rutgers University` returns LinkedIn
+   profiles showing current employer and school, which is the best alumni source (verified
+   2026-09-28: found OpenAI, HRT, Jane Street and Anthropic alumni that plain search missed).
+   `agent_run` with an `outputSchema` works well for "postings published since <date>" sweeps,
+   and it reads each ATS page's "Published" date. Scheduled routines only get Exa if Azra
+   attaches the connector to the routine in the claude.ai routines UI.
+6. **Network:** the container's shell proxy blocks most job boards (greenhouse, ashby, lever,
    company career sites, linkedin, levels.fyi). Use the `WebSearch` and `WebFetch` tools, not
    curl. `raw.githubusercontent.com` and `github.com` do work.
 
@@ -129,8 +136,9 @@ qualify, write fewer. Never pad with weak roles.
 ## E. Referrals
 
 For each kept job: `alumni_search_url` =
-`https://www.linkedin.com/search/results/people/?keywords=<Company>%20Rutgers`. Then WebSearch
-`site:linkedin.com/in "Rutgers" "<Company>"` and record up to 3 **public** matches as
+`https://www.linkedin.com/search/results/people/?keywords=<Company>%20Rutgers`. Then Exa
+`category:people <Company> Rutgers University` (or, without Exa, WebSearch
+`site:linkedin.com/in "Rutgers" "<Company>"`) and record up to 3 **public** matches as
 `{name, role, url}`, only if the snippet shows both Rutgers and the company. Never guess.
 Write `referral_dm`: at most 5 sentences, specific, no flattery, of this shape:
 "Hi <first name>, I'm a Rutgers ECE + Math student (Google SWE intern this summer, YouTube Ads
