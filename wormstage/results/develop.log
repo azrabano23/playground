@@ -1,0 +1,18 @@
+[  design] {'stage': 'witvliet1', 'stimulus': 'none'} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet1', 'stimulus': 'ASH'} -> freq_hz=1.22 wavelength_bl=0.867 forward_bl_s=-0.173 symmetry=0.868 undulating=1 reversal_index=0.0576 brain_p=0.014 bit_exact=1
+[  design] {'stage': 'witvliet2', 'stimulus': 'none'} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet2', 'stimulus': 'ASH'} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=-0.01 brain_p=0.0959 bit_exact=1
+[  design] {'stage': 'witvliet3', 'stimulus': 'none'} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet3', 'stimulus': 'ASH'} -> freq_hz=1.22 wavelength_bl=0.867 forward_bl_s=-0.173 symmetry=0.868 undulating=1 reversal_index=0.0304 brain_p=0.011 bit_exact=1
+[  design] {'stage': 'witvliet4', 'stimulus': 'none'} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet4', 'stimulus': 'ASH'} -> freq_hz=1.22 wavelength_bl=0.867 forward_bl_s=-0.173 symmetry=0.868 undulating=1 reversal_index=0.0174 brain_p=0.0509 bit_exact=1
+[  design] {'stage': 'witvliet5', 'stimulus': 'none'} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet5', 'stimulus': 'ASH'} -> freq_hz=0.852 wavelength_bl=0.885 forward_bl_s=-0.213 symmetry=0.894 undulating=1 reversal_index=0.0268 brain_p=0.00899 bit_exact=1
+[  design] {'stage': 'witvliet6', 'stimulus': 'none'} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet6', 'stimulus': 'ASH'} -> freq_hz=0.852 wavelength_bl=0.885 forward_bl_s=-0.213 symmetry=0.894 undulating=1 reversal_index=0.0147 brain_p=0.049 bit_exact=1
+[  design] {'stage': 'witvliet7', 'stimulus': 'none'} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet7', 'stimulus': 'ASH'} -> freq_hz=0.852 wavelength_bl=0.885 forward_bl_s=-0.213 symmetry=0.894 undulating=1 reversal_index=0.0191 brain_p=0.012 bit_exact=1
+[  design] {'stage': 'witvliet8', 'stimulus': 'none'} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'stimulus': 'ASH'} -> freq_hz=0.852 wavelength_bl=0.885 forward_bl_s=-0.213 symmetry=0.894 undulating=1 reversal_index=0.0224 brain_p=0.004 bit_exact=1
+[  design] {'stage': 'cook2019', 'stimulus': 'none'} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'cook2019', 'stimulus': 'ASH'} -> freq_hz=0.852 wavelength_bl=0.885 forward_bl_s=-0.213 symmetry=0.894 undulating=1 reversal_index=0.00844 brain_p=0.024 bit_exact=1

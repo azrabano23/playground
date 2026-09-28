@@ -1,0 +1,10 @@
+[  design] {'stage': 'witvliet1', 'K': 1.5} -> freq_hz=2.94 wavelength_bl=1.55 forward_bl_s=0.115 symmetry=0.761 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet1', 'K': 3.0} -> freq_hz=2.12 wavelength_bl=1.89 forward_bl_s=0.112 symmetry=0.783 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet1', 'K': 10.0} -> freq_hz=1.22 wavelength_bl=1.27 forward_bl_s=0.24 symmetry=0.861 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet1', 'K': 20.0} -> freq_hz=1.03 wavelength_bl=1.02 forward_bl_s=0.283 symmetry=0.89 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet1', 'K': 40.0} -> freq_hz=0.932 wavelength_bl=0.936 forward_bl_s=0.255 symmetry=0.907 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'K': 1.5} -> freq_hz=2.63 wavelength_bl=1.44 forward_bl_s=0.104 symmetry=0.688 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'K': 3.0} -> freq_hz=2.38 wavelength_bl=1.93 forward_bl_s=0.115 symmetry=0.701 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'K': 10.0} -> freq_hz=1.32 wavelength_bl=1.04 forward_bl_s=0.17 symmetry=0.756 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'K': 20.0} -> freq_hz=1.08 wavelength_bl=0.9 forward_bl_s=0.146 symmetry=0.818 undulating=1 reversal_index=0 bit_exact=1
+[  design] {'stage': 'witvliet8', 'K': 40.0} -> freq_hz=0.974 wavelength_bl=0.761 forward_bl_s=0.199 symmetry=0.808 undulating=1 reversal_index=0 bit_exact=1
