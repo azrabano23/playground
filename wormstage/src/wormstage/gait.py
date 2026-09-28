@@ -26,7 +26,7 @@ class Trace:
 
 def run(circuit: Circuit, snake: Snake, T: float = 30.0, dt: float = 0.02) -> Trace:
     k = compile_circuit(circuit, snake.n_links - 1, dt, snake.joint_max)
-    st = reset(k)
+    st = reset(k, circuit.backward)
     pose = np.zeros(3)
     phi = np.zeros(snake.n_links - 1)
     n = int(T / dt)
@@ -79,7 +79,7 @@ def measure(tr: Trace, settle: float = 10.0) -> dict:
         if abs(slope) > 1e-6:
             out["wavelength_bl"] = float(2 * np.pi / abs(slope) / (J + 1))
         out["wave_dir"] = float(-np.sign(slope))  # +1: head -> tail
-        out["undulating"] = int(out["wave_dir"] > 0 and f > 0.05)
+        out["undulating"] = int(out["wave_dir"] != 0 and f > 0.05)
     if amp.mean() > 0.02:  # symmetry of a body that does not bend is undefined
         mean = phi.mean(0)
         out["symmetry"] = float(1 - np.clip(np.abs(mean).mean() / amp.mean(), 0, 1))

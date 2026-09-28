@@ -10,6 +10,8 @@ def test_stage_composition():
     l1, ad = Circuit.for_stage("L1"), Circuit.for_stage("adult")
     assert (l1.n_dorsal, l1.n_ventral) == (7, 0)      # DB only at hatching
     assert (ad.n_dorsal, ad.n_ventral) == (7, 11)     # + VB after L1
+    back = Circuit.for_stage("adult", backward=True)
+    assert (back.n_dorsal, back.n_ventral) == (9, 12)  # DA, VA
 
 
 def test_tick_is_integer_and_bounded():
@@ -38,6 +40,13 @@ def test_stretch_sign_turns_dorsal_neurons_on():
 def test_both_stages_crawl_head_to_tail(label):
     m = measure(run(Circuit.for_stage(label), Snake(K=40), T=30))
     assert m["undulating"] == 1 and m["speed_bl_s"] > 0.05 and m["wave_dir"] == 1
+    assert m["forward_bl_s"] > 0
+
+
+@pytest.mark.parametrize("label", ["L1", "adult"])
+def test_a_type_circuit_reverses(label):
+    m = measure(run(Circuit.for_stage(label, backward=True), Snake(K=40), T=30))
+    assert m["undulating"] == 1 and m["wave_dir"] == -1 and m["forward_bl_s"] < -0.05
 
 
 def test_gait_adapts_to_the_medium():

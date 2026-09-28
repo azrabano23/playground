@@ -48,12 +48,19 @@ class Circuit:
     muscle_tau: float = 0.2    # s
     gain: float = 0.8          # rad at full activation difference
     nmj_taper: float = 0.6     # neuromuscular weight 0.7 * (1 - taper * x)
+    backward: bool = False     # A-type circuit: anterior receptive field
 
     @classmethod
-    def for_stage(cls, label: str, **kw) -> "Circuit":
+    def for_stage(cls, label: str, backward: bool = False, **kw) -> "Circuit":
+        """Forward uses B-type (DB 7, VB 11); backward uses A-type (DA 9, VA 12).
+
+        The A-type receptive field is taken as anterior, mirroring the B type.
+        That symmetry is a modelling assumption, not an anatomical measurement.
+        """
+        nd, nv = (9, 12) if backward else (7, 11)
         if label == "L1":
-            return cls("L1", n_dorsal=7, n_ventral=0, **kw)
-        return cls("post-L1", n_dorsal=7, n_ventral=11, **kw)
+            return cls("L1", n_dorsal=nd, n_ventral=0, backward=backward, **kw)
+        return cls("post-L1", n_dorsal=nd, n_ventral=nv, backward=backward, **kw)
 
 
 @dataclass
@@ -80,8 +87,11 @@ class Compiled:
     stage: str
 
 
-def _field(pos: float, n_joints: int, frac: float) -> np.ndarray:
+def _field(pos: float, n_joints: int, frac: float, backward: bool = False) -> np.ndarray:
     x = (np.arange(n_joints) + 1) / (n_joints + 1)
+    if backward:
+        idx = np.nonzero((x <= pos) & (x >= pos - frac))[0]
+        return idx if idx.size else np.array([0])
     idx = np.nonzero((x >= pos) & (x <= pos + frac))[0]
     return idx if idx.size else np.array([n_joints - 1])
 
@@ -90,12 +100,13 @@ def compile_circuit(c: Circuit, n_joints: int, dt: float, joint_max: float) -> C
     phi_max = int(round(c.sr_ref * 1000))  # stretch saturates the neuron at this bend
     dpos = (np.arange(c.n_dorsal) + 0.5) / c.n_dorsal
     vpos = (np.arange(c.n_ventral) + 0.5) / max(c.n_ventral, 1) if c.n_ventral else np.zeros(0)
-    dfield = [_field(p, n_joints, c.field) for p in dpos]
-    vfield = [_field(p, n_joints, c.field) for p in vpos]
+    dfield = [_field(p, n_joints, c.field, c.backward) for p in dpos]
+    vfield = [_field(p, n_joints, c.field, c.backward) for p in vpos]
     gain = lambda f: int(round(Q12 * 65536 / (len(f) * phi_max)))
     xj = (np.arange(n_joints) + 1) / (n_joints + 1)
     near = lambda pos, x: int(np.argmin(np.abs(pos - x)))
-    nmj = 0.7 * (1 - c.nmj_taper * xj) / 0.7  # normalised so the head has weight 1
+    xn = 1 - xj if c.backward else xj  # taper away from the leading end
+    nmj = 0.7 * (1 - c.nmj_taper * xn) / 0.7  # normalised so the leading end has weight 1
     return Compiled(
         n_joints, phi_max, dpos, vpos, dfield, vfield,
         np.array([gain(f) for f in dfield], np.int64),
@@ -119,10 +130,10 @@ class State:
     m_v: np.ndarray
 
 
-def reset(k: Compiled) -> State:
-    # break the symmetry the way a worm does at rest: the head starts bent
+def reset(k: Compiled, backward: bool = False) -> State:
+    # break the symmetry at the leading end: the head (or tail, reversing) starts bent
     s_d = np.zeros(len(k.dorsal_pos), np.int64)
-    s_d[0] = 1
+    s_d[-1 if backward else 0] = 1
     return State(s_d, np.zeros(len(k.ventral_pos), np.int64),
                  np.zeros(k.n_joints, np.int64), np.zeros(k.n_joints, np.int64))
 
