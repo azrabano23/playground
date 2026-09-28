@@ -32,4 +32,5 @@ jobs:
       - name: documented numbers match the ledgers
         run: |
           cd pocketpolicy && loopgraph claims results/ledger.jsonl results/claims.json && cd ..
-          cd wormstage && loopgraph claims results/ledger.jsonl results/claims.json
+          cd wormstage && loopgraph claims results/ledger.jsonl results/claims.json && cd ..
+          cd myoedge && loopgraph claims results/ledger.jsonl results/claims.json
