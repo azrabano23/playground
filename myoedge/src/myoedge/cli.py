@@ -50,6 +50,21 @@ def cmd_compare(a):
     return 0
 
 
+def cmd_within(a):
+    import numpy as np
+
+    from .data import subjects
+    from .pipeline import evaluate_within
+
+    L = Ledger(a.ledger)
+    acc = np.array([evaluate_within(s) for s in subjects()])
+    m = {"acc_within": float(acc.mean()), "acc_p10": float(np.percentile(acc, 10)),
+         "acc_min": float(acc.min()), "subjects": len(acc)}
+    record(L, "within", {"classifier": "lda", "window": 40, "vote": 3}, m, decided_by="design")
+    print(m)
+    return 0
+
+
 SPACE = {"window": [30, 40, 50, 60], "vote": [1, 3, 5, 7], "classifier": ["lda", "mlp16", "mlp32"],
          "aug": [0.0, 0.5, 1.0, 1.5], "recal": [0, 1]}
 
@@ -91,6 +106,7 @@ def main(argv=None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("fetch").set_defaults(fn=cmd_fetch)
     sub.add_parser("compare").set_defaults(fn=cmd_compare)
+    sub.add_parser("within").set_defaults(fn=cmd_within)
     s = sub.add_parser("campaign")
     s.add_argument("--budget", type=int, default=24)
     s.add_argument("--seed", type=int, default=0)

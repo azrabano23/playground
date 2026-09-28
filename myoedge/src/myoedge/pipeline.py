@@ -69,6 +69,22 @@ def evaluate_subject(s: int, window: int, vote: int, classifier: str, aug: float
             "latency_ms": m.latency_ms}
 
 
+def evaluate_within(s: int, window: int = 40, vote: int = 3, classifier: str = "lda") -> float:
+    """No shift: train on pre-shift repetitions 0-3, test on repetition 4."""
+    d = electrode_shift(s)
+    tr = [r for r in d["training"] if r.rep < 4]
+    L, mu, sd, X = train(tr, classifier, window, 0)
+    m = Model.build(L, mu, sd, X, window, STEP, vote)
+    hit = tot = 0
+    for r in d["training"]:
+        if r.rep != 4:
+            continue
+        p = voted(m.classify(np.array([td(w) for w in windows(r.emg, window, STEP)])), vote)
+        hit += int(np.sum(p == r.label))
+        tot += len(p)
+    return hit / tot
+
+
 @node(version="2")  # shift estimate now rotates the pattern, not the samples
 def per_subject(window, vote, classifier, aug, recal, seed):
     return {s: evaluate_subject(s, window, vote, classifier, aug, recal, seed)
