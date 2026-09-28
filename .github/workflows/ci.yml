@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: install
+        run: pip install -e ./loopgraph[test] -e ./pocketpolicy[test] -e ./wormstage[test] -e ./myoedge[test]
+      - name: fetch emg data (pinned commits)
+        run: cd myoedge && myoedge fetch
+      - name: loopgraph
+        run: cd loopgraph && pytest -q
+      - name: pocketpolicy
+        run: cd pocketpolicy && pytest -q
+      - name: wormstage
+        run: cd wormstage && pytest -q
+      - name: myoedge
+        run: cd myoedge && pytest -q
+      - name: documented numbers match the ledgers
+        run: |
+          cd pocketpolicy && loopgraph claims results/ledger.jsonl results/claims.json && cd ..
+          cd wormstage && loopgraph claims results/ledger.jsonl results/claims.json
