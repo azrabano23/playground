@@ -105,10 +105,9 @@ int main(int argc, char** argv) {
           }
         }
       }
-      double grad = n ? t->solver[(n < mjNSOLVER ? n : mjNSOLVER) - 1].gradient : 0;
-      if (grad > 1e-3) {
+      if (dev > 1e-3) {
         nunconv++;
-        // false fixed point: restart from the returned qacc
+        // false fixed point: restarting from the returned qacc does not move it
         mju_copy(t->qacc_warmstart, t->qacc, m->nv);
         mj_forward(m, t);
         if (t->solver_niter[0] == 0) nfixed++;
@@ -123,7 +122,8 @@ int main(int argc, char** argv) {
   printf("cone=%s impratio=%s ls_iterations=%d mjtNum=%zuB steps=%ld solves_with_contact=%ld\n",
          cone, impratio, ls, sizeof(mjtNum), nstep, ncontact);
   printf("  |qacc-ref|>1: %ld  (max %.3g)\n", ndev1, maxdev);
-  printf("  final gradient>1e-3: %ld   of which restart gives 0 iterations: %ld\n", nunconv, nfixed);
+  printf("  |qacc-ref|>1e-3: %ld   of which restart gives 0 iterations (false fixed point): %ld\n",
+         nunconv, nfixed);
   printf("  line searches: %ld  mean evals %.2f  max evals %d  exhausted(neval>=ls) %ld\n",
          niter_sum, niter_sum ? (double)neval_sum/niter_sum : 0.0, neval_max, nls_exhaust);
   printf("  mean newton iters %.3f  mean mj_forward time %.2f us\n",

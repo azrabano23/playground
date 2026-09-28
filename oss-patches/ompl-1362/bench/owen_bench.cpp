@@ -1,7 +1,8 @@
 // Benchmark / reproduction harness for ompl/ompl#1362
 // (OwenStateSpace fails to find a path for ~25% of random state pairs).
 //
-// Usage: owen_bench [numPairs=100000] [numRefPairs=10000] [boundsHalfWidth=10] [seed=1]
+// Usage: owen_bench [numPairs=100000] [numRefPairs=10000] [boundsHalfWidth=10] [seed=1] [maxPitch=pi/6]
+//                   [turnRadius=1]
 //
 // For numPairs random state pairs (uniform over the bounds, fixed seed) it counts
 // how often OwenStateSpace::getPath() returns no path (or throws), checks that each
@@ -248,7 +249,8 @@ int main(int argc, char **argv)
     ompl::msg::setLogLevel(ompl::msg::LOG_NONE);
     ompl::RNG::setSeed(seed);
 
-    const double rho = 1., maxPitch = PI / 6.;
+    const double maxPitch = argc > 5 ? std::stod(argv[5]) : PI / 6.;
+    const double rho = argc > 6 ? std::stod(argv[6]) : 1.;
     auto space = std::make_shared<ob::OwenStateSpace>(rho, maxPitch);
     ob::RealVectorBounds bounds(3);
     bounds.setLow(-half);
@@ -313,7 +315,8 @@ int main(int argc, char **argv)
             ++badConstraint;
     }
 
-    std::printf("pairs=%d bounds=[-%g,%g]^3 rho=%g maxPitch=pi/6 seed=%u\n", numPairs, half, half, rho, seed);
+    std::printf("pairs=%d bounds=[-%g,%g]^3 rho=%g maxPitch=%g seed=%u\n", numPairs, half, half, rho, maxPitch,
+                seed);
     std::printf("failures (no path or exception): %d  (%.3f%%), exceptions: %d\n", fails, 100. * fails / numPairs,
                 throws);
     for (auto &c : catCount)
