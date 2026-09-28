@@ -1,7 +1,7 @@
 # playground
 
-Three research projects that turn published scientific data into controllers small enough for
-the cheapest chip in the robot, plus the harness that runs them.
+Research projects that turn published scientific data into controllers small enough for
+the cheapest chip in the robot, three hardware × quantization projects, and the harness that runs them.
 
 | project | question | data | result so far |
 |---|---|---|---|
@@ -9,6 +9,8 @@ the cheapest chip in the robot, plus the harness that runs them.
 | [wormstage](wormstage) | Does a robot driven by the worm's connectome develop the way the worm does? | *C. elegans* connectomes at 8 ages (Witvliet 2021) + adult (Cook 2019) | CPG-free crawling, worm-like gait change with the medium, and avoidance wiring specific from birth |
 | [myoedge](myoedge) | Can a $5 chip decode EMG for a prosthetic hand that still works after the armband is taken off and put back on? | 21 subjects, electrode-shift dataset (Campbell 2024) | one 3-second fist restores post-shift accuracy from 52% to 90%, at 100 ms delay in 456 B of weights |
 | [ticktotrade](ticktotrade) | How fast can an FPGA go from a NASDAQ ITCH tick to an OUCH order? | synthetic ITCH 5.0 over MoldUDP64 | 4-cycle (12.4 ns at an assumed 322 MHz) book-update-to-order in Verilog, bit-exact vs a Python golden model; 6.9k LUT on 7-series (yosys, no P&R) |
+| [lowbit](lowbit) | How fast can a CPU multiply by 4-bit LLM weights without unpacking them? | W4A16, W4A8, MXFP4 at LLM decode/prefill shapes | cold-cache decode 5.3× numpy fp32 (W4A8 VNNI); 2.2–2.9× llama.cpp Q4_0 on its default CPU path; int32 accumulators bit-exact on scalar/AVX2/VNNI/AMX |
+| [qfuzz](qfuzz) | Does ONNX Runtime compute quantized graphs the way the ONNX spec says? | 150k generated quantized graphs vs an exact reference | 4 real wrong-result bugs in ORT 1.30 (e.g. Q→DQ→Q→DQ fusion returns -6.504 where the spec gives -7.0), 55 minimized repros |
 | [loopgraph](loopgraph) | the harness | | |
 
 ## How the work is run
