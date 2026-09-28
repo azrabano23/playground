@@ -1,0 +1,114 @@
+From 5d8f09c010b2fa7b08c6b7223f854344a616a2c7 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:46:15 +0000
+Subject: [PATCH] fix(moments): divide the Bodnar-Okhrin-Parolya beta by the
+ target's norm
+
+ShrunkMu with BODNAR_OKHRIN computed the target intensity as
+(1 - alpha) * (ybar' S^-1 mu0) / (ybar' S^-1 ybar). Eq. (7) of Bodnar,
+Okhrin and Parolya (2019) divides by mu0' S^-1 mu0 instead, which is the
+loss-minimizing coefficient for a given alpha. With the old denominator,
+alpha_ + beta_ is typically below one, so mu_ is pulled toward zero
+rather than toward the target.
+
+Add a test that checks alpha_, beta_ and mu_ against eq. (6) and (7)
+and update the regression values.
+---
+ .../moments/expected_returns/_shrunk_mu.py    |  2 +-
+ .../test_expected_returns.py                  | 63 +++++++++++++------
+ 2 files changed, 44 insertions(+), 21 deletions(-)
+
+diff --git a/src/skfolio/moments/expected_returns/_shrunk_mu.py b/src/skfolio/moments/expected_returns/_shrunk_mu.py
+index 9c744c2..285f239 100644
+--- a/src/skfolio/moments/expected_returns/_shrunk_mu.py
++++ b/src/skfolio/moments/expected_returns/_shrunk_mu.py
+@@ -246,7 +246,7 @@ class ShrunkMu(BaseMu):
+                 self.alpha_ = (
+                     (u - n_assets / (n_observations - n_assets)) * w - v**2
+                 ) / (u * w - v**2)
+-                self.beta_ = (1 - self.alpha_) * v / u
++                self.beta_ = (1 - self.alpha_) * v / w
+             # The type check above and the exhaustive enum cases cover all inputs.
+             case _:  # pragma: no cover
+                 raise ValueError(f"method {self.method} is not valid")
+diff --git a/tests/test_moment/test_expected_returns/test_expected_returns.py b/tests/test_moment/test_expected_returns/test_expected_returns.py
+index 357611e..ba2548d 100644
+--- a/tests/test_moment/test_expected_returns/test_expected_returns.py
++++ b/tests/test_moment/test_expected_returns/test_expected_returns.py
+@@ -688,30 +688,53 @@ class TestShrunkMu:
+             model.mu_,
+             np.array(
+                 [
+-                    5.95933693e-05,
+-                    -1.35794787e-04,
+-                    1.64942731e-04,
+-                    1.29423513e-04,
+-                    1.81800576e-04,
+-                    3.19823666e-04,
+-                    1.13984606e-04,
+-                    1.91136381e-04,
+-                    1.55748848e-04,
+-                    2.08027978e-04,
+-                    4.61803341e-05,
+-                    1.61649535e-04,
+-                    6.17239528e-05,
+-                    1.75289900e-04,
+-                    1.84813270e-04,
+-                    1.91313069e-04,
+-                    2.49201958e-04,
+-                    5.60390638e-05,
+-                    1.98207784e-04,
+-                    2.13797362e-04,
++                    2.96032617e-04,
++                    1.00644461e-04,
++                    4.01381979e-04,
++                    3.65862761e-04,
++                    4.18239824e-04,
++                    5.56262914e-04,
++                    3.50423854e-04,
++                    4.27575629e-04,
++                    3.92188096e-04,
++                    4.44467226e-04,
++                    2.82619582e-04,
++                    3.98088783e-04,
++                    2.98163201e-04,
++                    4.11729148e-04,
++                    4.21252518e-04,
++                    4.27752317e-04,
++                    4.85641206e-04,
++                    2.92478312e-04,
++                    4.34647032e-04,
++                    4.50236610e-04,
+                 ]
+             ),
+         )
+ 
++    @pytest.mark.parametrize("vol_weighted_target", [False, True])
++    def test_bodnar_okhrin_matches_reference(self, X, vol_weighted_target):
++        """Check the intensities against eq. (6) and (7) of Bodnar et al. (2019)."""
++        model = ShrunkMu(
++            method=ShrunkMuMethods.BODNAR_OKHRIN,
++            vol_weighted_target=vol_weighted_target,
++        )
++        model.fit(X)
++        n_observations, n_assets = X.shape
++        y = np.asarray(X).mean(axis=0)
++        b = model.mu_target_
++        cov_inv = np.linalg.inv(model.covariance_estimator_.covariance_)
++        yy = y @ cov_inv @ y
++        yb = y @ cov_inv @ b
++        bb = b @ cov_inv @ b
++        alpha = ((yy - n_assets / (n_observations - n_assets)) * bb - yb**2) / (
++            yy * bb - yb**2
++        )
++        beta = (1 - alpha) * yb / bb
++        np.testing.assert_allclose(model.alpha_, alpha)
++        np.testing.assert_allclose(model.beta_, beta)
++        np.testing.assert_allclose(model.mu_, alpha * y + beta * b)
++
+     def test_james_stein_outputs_are_real(self, X):
+         model = ShrunkMu(method=ShrunkMuMethods.JAMES_STEIN)
+         model.fit(X)
+-- 
+2.43.0
+
