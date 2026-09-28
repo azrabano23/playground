@@ -1,0 +1,154 @@
+From a82dff1dc6bb3bf15dc1b245c74e7b9be24b6c1c Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:36:58 +0000
+Subject: [PATCH] BUG: Do not report poolability F-test with robust covariance
+
+The poolability F-test in PanelOLS is computed from residual sums of
+squares and is only valid under homoskedasticity, yet it was reported
+unchanged when a robust, clustered or kernel covariance was used. Return
+an InvalidTestStatistic in these cases, which matches Stata where F_f is
+only reported for vce(conventional). Also fix the remaining reference to
+the 'cluster' weight type in the IV docs, which should be 'clustered'.
+
+xref #631
+---
+ doc/source/iv/introduction.rst                |  2 +-
+ linearmodels/panel/model.py                   | 11 +++++++-
+ linearmodels/panel/results.py                 |  5 +++-
+ linearmodels/tests/panel/test_panel_ols.py    | 27 ++++++++++++++++++-
+ .../panel/test_simulated_against_stata.py     |  9 ++++++-
+ 5 files changed, 49 insertions(+), 5 deletions(-)
+
+diff --git a/doc/source/iv/introduction.rst b/doc/source/iv/introduction.rst
+index a3b1e9e..484a7f6 100644
+--- a/doc/source/iv/introduction.rst
++++ b/doc/source/iv/introduction.rst
+@@ -129,7 +129,7 @@ GMM and GMM-CUE Estimation
+     :class:`~linearmodels.iv.gmm.HeteroskedasticWeightMatrix`.
+   * 'kernel' - Allows for both heteroskedasticity and autocorrelation in the
+     moment conditions. See :class:`~linearmodels.iv.gmm.KernelWeightMatrix`.
+-  * 'cluster' - Allows for a one-way cluster structure where moment
++  * 'clustered' - Allows for a one-way cluster structure where moment
+     conditions within a cluster are correlated.
+     See :class:`~linearmodels.iv.gmm.OneWayClusteredWeightMatrix`.
+ 
+diff --git a/linearmodels/panel/model.py b/linearmodels/panel/model.py
+index 9a997a9..99fa6df 100644
+--- a/linearmodels/panel/model.py
++++ b/linearmodels/panel/model.py
+@@ -2062,13 +2062,22 @@ class PanelOLS(_PanelModelBase):
+ 
+             denom = resid_ss / df_denom
+             stat = num / denom
+-            f_pooled = WaldTestStatistic(
++            f_pooled: WaldTestStatistic = WaldTestStatistic(
+                 stat,
+                 "Effects are zero",
+                 df_num,
+                 df_denom=df_denom,
+                 name="Pooled F-statistic",
+             )
++            if type(cov) is not HomoskedasticCovariance:
++                # The poolability test is a classical F built from residual sums
++                # of squares and so is only valid under homoskedasticity.  There
++                # is no simple robust analog, so it is not reported (as in Stata).
++                f_pooled = InvalidTestStatistic(
++                    "The poolability F-test is only valid under homoskedasticity. "
++                    'Refit using cov_type="unadjusted" to compute this test.',
++                    name="Pooled F-statistic",
++                )
+             res.update(f_pooled=f_pooled)
+             effects = DataFrame(
+                 eps_effects - eps,
+diff --git a/linearmodels/panel/results.py b/linearmodels/panel/results.py
+index 5617605..469dff4 100644
+--- a/linearmodels/panel/results.py
++++ b/linearmodels/panel/results.py
+@@ -773,7 +773,10 @@ class PanelEffectsResults(PanelResults):
+         Notes
+         -----
+         Joint test that all included effects are zero.  Only correct under an
+-        assumption of homoskedasticity.
++        assumption of homoskedasticity, and so is only computed when the model
++        is fit using ``cov_type="unadjusted"``. When a robust, clustered or
++        kernel covariance estimator is used, an ``InvalidTestStatistic`` is
++        returned.
+ 
+         The test statistic is defined as
+ 
+diff --git a/linearmodels/tests/panel/test_panel_ols.py b/linearmodels/tests/panel/test_panel_ols.py
+index 14e7bbc..dc5e110 100644
+--- a/linearmodels/tests/panel/test_panel_ols.py
++++ b/linearmodels/tests/panel/test_panel_ols.py
+@@ -12,7 +12,7 @@ from linearmodels.panel.data import PanelData
+ from linearmodels.panel.model import PanelOLS, PooledOLS
+ from linearmodels.panel.utility import AbsorbingEffectWarning
+ from linearmodels.shared.exceptions import MemoryWarning
+-from linearmodels.shared.hypotheses import WaldTestStatistic
++from linearmodels.shared.hypotheses import InvalidTestStatistic, WaldTestStatistic
+ from linearmodels.shared.utility import AttrDict
+ from linearmodels.tests.panel._utility import (
+     access_attributes,
+@@ -1165,6 +1165,31 @@ def test_f_pooled(data):
+     assert res.f_pooled.df_denom == v2
+ 
+ 
++@pytest.mark.parametrize(
++    "cov_kwargs",
++    [
++        {"cov_type": "robust"},
++        {"cov_type": "clustered", "cluster_entity": True},
++        {"cov_type": "kernel"},
++    ],
++)
++def test_f_pooled_robust_cov(data, cov_kwargs):
++    # GH 631: the poolability F-test is homoskedastic-only and should not be
++    # reported alongside robust/clustered inference
++    mod = PanelOLS(data.y, data.x, entity_effects=True)
++    res = mod.fit(**cov_kwargs)
++    assert isinstance(res.f_pooled, InvalidTestStatistic)
++    assert np.isnan(res.f_pooled.stat)
++    assert np.isnan(res.f_pooled.pval)
++    assert "F-test for Poolability" not in str(res.summary)
++    # The model F-statistics are unaffected
++    unadjusted = mod.fit()
++    assert_allclose(res.f_statistic.stat, unadjusted.f_statistic.stat)
++    assert np.isfinite(res.f_statistic_robust.stat)
++    assert "F-test for Poolability" in str(unadjusted.summary)
++    assert np.isfinite(unadjusted.f_pooled.stat)
++
++
+ def test_entity_other(data):
+     y = PanelData(data.y)
+     x = PanelData(data.x)
+diff --git a/linearmodels/tests/panel/test_simulated_against_stata.py b/linearmodels/tests/panel/test_simulated_against_stata.py
+index 2cce1f1..f67881f 100644
+--- a/linearmodels/tests/panel/test_simulated_against_stata.py
++++ b/linearmodels/tests/panel/test_simulated_against_stata.py
+@@ -8,6 +8,7 @@ import pytest
+ 
+ from linearmodels.panel.data import PanelData
+ from linearmodels.panel.model import BetweenOLS, PanelOLS, PooledOLS, RandomEffects
++from linearmodels.shared.hypotheses import InvalidTestStatistic
+ from linearmodels.shared.utility import AttrDict
+ from linearmodels.tests.panel.results import parse_stata_results
+ 
+@@ -143,8 +144,14 @@ def test_cov(data):
+ def test_f_pooled(data):
+     f_pool = getattr(data.fit, "f_pooled", None)
+     stata_f_pool = data.stata.F_f
+-    if not f_pool or np.isnan(stata_f_pool):
++    if not f_pool:
+         pytest.skip("Result not available for testing")
++    if np.isnan(stata_f_pool):
++        # Stata does not report the poolability test with robust or
++        # clustered covariance estimators
++        assert data.fit_options["cov_type"] != "unadjusted"
++        assert isinstance(f_pool, InvalidTestStatistic)
++        return
+     assert_allclose(f_pool.stat, stata_f_pool)
+ 
+ 
+-- 
+2.43.0
+
