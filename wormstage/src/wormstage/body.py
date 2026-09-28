@@ -29,6 +29,10 @@ class Snake:
     servo_rate: float = 4.0     # rad/s max joint speed (hobby servo, loaded)
     servo_tau: float = 0.05     # s first-order servo lag
     joint_max: float = 1.0      # rad
+    compliant: bool = True      # torque-mode joints (series-elastic) vs stiff position servos
+    k_joint: float = 0.1        # N m / rad, compliant mode: torque per rad of target error
+    drag_ct: float = 0.25       # N s / m per m of link, tangential drag coefficient
+    joint_damping: float = 1e-4  # N m s / rad, internal
 
     @property
     def length(self) -> float:
@@ -72,11 +76,49 @@ class Snake:
         return np.linalg.solve(A, b)
 
     def step(self, pose, phi, target, dt):
-        """Servos move toward targets; the body moves so drag balances."""
+        """Advance one tick toward joint targets.
+
+        Stiff mode: servos track targets regardless of load, and the body moves
+        so that drag balances. Compliant mode: each joint applies a torque
+        proportional to its target error, and joints and body move together
+        so that drag, internal damping and joint torque balance; the medium
+        can then push back on the bending wave, as it does on a worm.
+        """
         target = np.clip(target, -self.joint_max, self.joint_max)
-        rate = np.clip((target - phi) / self.servo_tau, -self.servo_rate, self.servo_rate)
-        dpose = self.body_velocity(pose, phi, rate)
-        return pose + dt * dpose, phi + dt * rate
+        if not self.compliant:
+            rate = np.clip((target - phi) / self.servo_tau, -self.servo_rate, self.servo_rate)
+            dpose = self.body_velocity(pose, phi, rate)
+            return pose + dt * dpose, phi + dt * rate
+        qdot = self.compliant_velocity(pose, phi, self.k_joint * (target - phi), dt)
+        phi2 = np.clip(phi + dt * qdot[3:], -self.joint_max, self.joint_max)
+        return pose + dt * qdot[:3], phi2
+
+    def compliant_velocity(self, pose, phi, torque, dt=0.0, eps=1e-6):
+        """Overdamped generalized velocities: (J^T D J + B + dt*k) qdot = tau.
+
+        The dt*k term makes the step implicit in the joint spring. Explicit
+        Euler on this system is unstable for light distal links in low drag
+        (the fastest mode's time constant falls below one control tick).
+        """
+        q = np.concatenate([pose, phi])
+        n = len(q)
+        c0, th0 = self.frames(pose, phi)
+        J = np.empty((2 * self.n_links, n))
+        for i in range(n):
+            dq = np.zeros(n)
+            dq[i] = eps
+            c1, _ = self.frames((q + dq)[:3], (q + dq)[3:])
+            J[:, i] = ((c1 - c0) / eps).ravel()
+        t = np.stack([np.cos(th0), np.sin(th0)], 1)
+        nrm = np.stack([-t[:, 1], t[:, 0]], 1)
+        D = np.zeros((2 * self.n_links, 2 * self.n_links))
+        for k in range(self.n_links):
+            D[2 * k:2 * k + 2, 2 * k:2 * k + 2] = self.drag_ct * self.link * (
+                np.outer(t[k], t[k]) + self.K * np.outer(nrm[k], nrm[k]))
+        M = J.T @ D @ J
+        M[3:, 3:] += (self.joint_damping + dt * self.k_joint) * np.eye(n - 3)
+        tau = np.concatenate([np.zeros(3), torque])
+        return np.linalg.solve(M, tau)
 
 
 def serpenoid(n_joints: int, t: float, amp=0.6, freq=0.5, waves=1.0) -> np.ndarray:

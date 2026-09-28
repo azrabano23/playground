@@ -4,6 +4,7 @@ from wormstage.body import Snake, serpenoid
 
 
 def run(K, T=12.0, dt=0.02, **kw):
+    kw.setdefault("compliant", False)
     s = Snake(K=K, **kw)
     pose, phi = np.zeros(3), np.zeros(s.n_links - 1)
     for k in range(int(T / dt)):
@@ -39,3 +40,30 @@ def test_servo_limits():
     pose, phi = np.zeros(3), np.zeros(3)
     _, phi2 = s.step(pose, phi, np.full(3, 5.0), 0.01)
     assert np.allclose(phi2, 0.02)
+
+
+def test_compliant_mode_is_stable_in_low_drag():
+    """Regression: explicit Euler chattered at the Nyquist rate for K=1.5."""
+    s = Snake(K=1.5, compliant=True)
+    pose, phi = np.zeros(3), np.zeros(s.n_links - 1)
+    dt = 0.02
+    P = []
+    for k in range(600):
+        pose, phi = s.step(pose, phi, serpenoid(s.n_links - 1, k * dt, amp=0.5, freq=0.8), dt)
+        P.append(phi[3])
+    x = np.array(P[200:])
+    flips = np.sum(np.diff(np.sign(np.diff(x))) != 0)
+    assert flips < 40  # 0.8 Hz over 8 s has ~13 peaks and troughs, not hundreds
+
+
+def test_soft_joints_yield_to_the_medium():
+    amps = []
+    for K in (1.5, 40.0):
+        s = Snake(K=K, compliant=True, k_joint=0.02)
+        pose, phi = np.zeros(3), np.zeros(s.n_links - 1)
+        P = []
+        for k in range(600):
+            pose, phi = s.step(pose, phi, serpenoid(s.n_links - 1, k * 0.02, 0.5, 0.8), 0.02)
+            P.append(phi.copy())
+        amps.append(np.std(np.array(P[200:]), 0).mean())
+    assert amps[1] < 0.8 * amps[0]
