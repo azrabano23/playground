@@ -42,15 +42,30 @@ def pattern(emg: np.ndarray) -> np.ndarray:
     return np.abs(emg.astype(np.int64)).sum(0)
 
 
-def estimate_shift(ref: np.ndarray, cal_emg: np.ndarray) -> int:
+def rotate_pattern(p: np.ndarray, steps: int) -> np.ndarray:
+    """Rotate an int64 per-channel pattern with the same Q8 interpolation."""
+    k, rem = divmod(int(steps), STEPS_PER_CHANNEL)
+    f = rem * 256 // STEPS_PER_CHANNEL
+    a = np.roll(p, -k)
+    b = np.roll(p, -k - 1)
+    return ((256 - f) * a + f * b + 128) >> 8
+
+
+def estimate_shift(ref: np.ndarray, cal: np.ndarray) -> int:
     """Rotation (in steps) that maps the calibration fist back onto the reference.
 
-    maximise  <ref, p_s> / |p_s|  over s, compared without roots:
-    a/|p| > b/|q|  <=>  a^2 |q|^2 > b^2 |p|^2  for a, b > 0.
+    `cal` is raw int8 samples or an already accumulated pattern. The device
+    accumulates sum |x| per channel while the user holds the fist, so it needs
+    eight counters, not a sample buffer. Maximises <ref, p_s> / |p_s| over s,
+    compared without roots: a/|p| > b/|q|  <=>  a^2 |q|^2 > b^2 |p|^2.
+    Both patterns are scaled down by 2^8 so the squares fit in int64.
     """
+    p0 = pattern(cal) if np.ndim(cal) == 2 else np.asarray(cal, np.int64)
+    ref = np.asarray(ref, np.int64) >> 8
+    p0 = p0 >> 8
     best, best_num, best_den = 0, -1, 1
     for s in SEARCH:
-        p = pattern(rotate(cal_emg, -int(s)))
+        p = rotate_pattern(p0, -int(s))
         dot = int(np.dot(ref, p))
         num, den = dot * dot if dot > 0 else 0, int(np.dot(p, p)) or 1
         if num * best_den > best_num * den:

@@ -20,7 +20,7 @@ import numpy as np
 
 from loopgraph.int8 import QMLP, emit_c, quantize_mlp
 
-from .adapt import STEPS_PER_CHANNEL
+from .adapt import SEARCH, STEPS_PER_CHANNEL
 from .data import CHANNELS, FS
 from .features import ilog2_q4, td
 
@@ -160,6 +160,14 @@ typedef struct {{
 }} {name}_t;
 
 void {name}_init({name}_t *d, int8_t shift);
+
+/* Calibration: while the user holds a fist, feed samples to cal_push; then
+   cal_finish compares against the training fist pattern and returns the
+   shift to pass to {name}_init. Eight counters of state, no sample buffer. */
+typedef struct {{ int32_t acc[{up}_CH]; }} {name}_cal_t;
+void {name}_cal_reset({name}_cal_t *c);
+void {name}_cal_push({name}_cal_t *c, const int8_t sample[{up}_CH]);
+int8_t {name}_cal_finish(const {name}_cal_t *c, const int32_t ref[{up}_CH]);
 /* Push one sample; returns the decided class (0..4) on decision ticks, else -1.
    d->servo then holds thumb, index, others in degrees. */
 int8_t {name}_push({name}_t *d, const int8_t sample[{up}_CH]);
@@ -200,6 +208,39 @@ void {name}_init({name}_t *d, int8_t shift)
     d->head = d->filled = d->since = d->nvotes = 0;
     for (int i = 0; i < 3; ++i) d->servo[i] = S_OPEN[i];
     d->shift = shift;
+}}
+
+void {name}_cal_reset({name}_cal_t *c)
+{{
+    for (int ch = 0; ch < {up}_CH; ++ch) c->acc[ch] = 0;
+}}
+
+void {name}_cal_push({name}_cal_t *c, const int8_t sample[{up}_CH])
+{{
+    for (int ch = 0; ch < {up}_CH; ++ch) c->acc[ch] += sample[ch] < 0 ? -sample[ch] : sample[ch];
+}}
+
+int8_t {name}_cal_finish(const {name}_cal_t *c, const int32_t ref[{up}_CH])
+{{
+    int64_t best_num = -1, best_den = 1;
+    int8_t best = 0;
+    for (int s = {int(SEARCH[0])}; s <= {int(SEARCH[-1])}; ++s) {{
+        int t = -s;
+        int k = t >= 0 ? t / {STEPS_PER_CHANNEL} : -((-t + {STEPS_PER_CHANNEL} - 1) / {STEPS_PER_CHANNEL});
+        int64_t f = (t - k * {STEPS_PER_CHANNEL}) * 256 / {STEPS_PER_CHANNEL};
+        int64_t dot = 0, den = 0;
+        for (int ch = 0; ch < {up}_CH; ++ch) {{
+            int64_t a = c->acc[((ch + k) % {up}_CH + {up}_CH) % {up}_CH] >> 8;
+            int64_t b = c->acc[((ch + k + 1) % {up}_CH + {up}_CH) % {up}_CH] >> 8;
+            int64_t p = ((256 - f) * a + f * b + 128) >> 8;
+            dot += (int64_t)(ref[ch] >> 8) * p;
+            den += p * p;
+        }}
+        int64_t num = dot > 0 ? dot * dot : 0;
+        if (den == 0) den = 1;
+        if (num * best_den > best_num * den) {{ best = (int8_t)s; best_num = num; best_den = den; }}
+    }}
+    return best;
 }}
 
 #define AT(i) d->buf[(d->head + (i)) % {up}_WINDOW]
@@ -303,3 +344,39 @@ int main(void) {{
         return False, len(ref), len(ref)
     bad = int(np.sum(np.any(got != ref, axis=1)))
     return bad == 0, bad, len(ref)
+
+
+def check_calibration(m: Model, ref: np.ndarray, fists: list[np.ndarray], name: str = "myo"):
+    """C calibration vs adapt.estimate_shift on each fist recording."""
+    from loopgraph.cgate import compile_and_run
+
+    from .adapt import estimate_shift
+
+    up = name.upper()
+    refs = ", ".join(str(int(v)) for v in ref)
+    main = f"""#include <stdio.h>
+#include "{name}.h"
+static const int32_t REF[{up}_CH] = {{{refs}}};
+int main(void) {{
+    {name}_cal_t c;
+    int n, v;
+    int8_t s[{up}_CH];
+    while (scanf("%d", &n) == 1) {{
+        {name}_cal_reset(&c);
+        for (int i = 0; i < n; ++i) {{
+            for (int ch = 0; ch < {up}_CH; ++ch) {{
+                if (scanf("%d", &v) != 1) return 1;
+                s[ch] = (int8_t)v;
+            }}
+            {name}_cal_push(&c, s);
+        }}
+        printf("%d\\n", {name}_cal_finish(&c, REF));
+    }}
+    return 0;
+}}
+"""
+    stdin = "".join(f"{len(f)}\n" + "\n".join(" ".join(map(str, r)) for r in f) + "\n"
+                    for f in fists)
+    got = [int(x) for x in compile_and_run(emit(m, name), main, stdin).split()]
+    want = [estimate_shift(ref, f) for f in fists]
+    return got == want, got, want

@@ -3,7 +3,8 @@ import pytest
 
 from loopgraph.cgate import cc
 from myoedge.data import Recording
-from myoedge.deploy import SERVO_CLOSED, SERVO_OPEN, Model, check_c, run_stream
+from myoedge.deploy import (SERVO_CLOSED, SERVO_OPEN, Model, check_c, check_calibration,
+                            run_stream)
 from myoedge.features import featurize
 from myoedge.model import fit_lda, standardise
 
@@ -61,3 +62,15 @@ def test_c_decoder_is_bit_exact(model, shift):
     ok, bad, n = check_c(m, emg)
     m.shift = 0
     assert ok and n > 50, (bad, n)
+
+
+@pytest.mark.skipif(cc() is None, reason="no C compiler")
+def test_c_calibration_matches_reference(model):
+    from myoedge.adapt import pattern, rotate
+    m, recs = model
+    fist = [r.emg for r in recs if r.label == 0]
+    ref = sum(pattern(f) for f in fist)
+    worn = [rotate(fist[0], s) for s in (-7, -2, 0, 3, 9)]
+    ok, got, want = check_calibration(m, ref, worn)
+    assert ok, (got, want)
+    assert all(abs(g - s) <= 1 for g, s in zip(got, (-7, -2, 0, 3, 9)))

@@ -69,7 +69,7 @@ def evaluate_subject(s: int, window: int, vote: int, classifier: str, aug: float
             "latency_ms": m.latency_ms}
 
 
-@node(version="1")
+@node(version="2")  # shift estimate now rotates the pattern, not the samples
 def per_subject(window, vote, classifier, aug, recal, seed):
     return {s: evaluate_subject(s, window, vote, classifier, aug, recal, seed)
             for s in subjects()}
