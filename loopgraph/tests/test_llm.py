@@ -39,7 +39,7 @@ def test_valid_proposals_are_used_and_invalid_are_replaced():
         {"params": {"width": "8", "bits": "4"}, "hypothesis": "already run"},
     ]}
     client, msgs = client_with(payload)
-    d = LLMDecider([Objective("acc")], client=client)
+    d = LLMDecider([Objective("acc")], client=client, model="test-model")
     hist = [Entry("x", {"width": 8, "bits": 4}, {"acc": 0.5})]
     out = d.propose(SPACE, hist, 3)
     assert out[0].params == {"width": 16, "bits": 8}
@@ -54,7 +54,7 @@ def test_valid_proposals_are_used_and_invalid_are_replaced():
 
 def test_refusal_and_errors_degrade_to_fallback():
     client, _ = client_with({"proposals": []}, stop="refusal")
-    d = LLMDecider([Objective("acc")], client=client)
+    d = LLMDecider([Objective("acc")], client=client, model="test-model")
     out = d.propose(SPACE, [], 2)
     assert len(out) == 2 and d.last_error == "refusal"
 
@@ -65,6 +65,6 @@ def test_refusal_and_errors_degrade_to_fallback():
                 def create(**kw):
                     raise ConnectionError("offline")
 
-    d = LLMDecider([Objective("acc")], client=Boom)
+    d = LLMDecider([Objective("acc")], client=Boom, model="test-model")
     out = d.propose(SPACE, [], 2)
     assert len(out) == 2 and "offline" in d.last_error

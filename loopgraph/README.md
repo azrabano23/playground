@@ -46,7 +46,7 @@ loopgraph front ledger.jsonl -e distill -o success,flash_kb:min
 loopgraph claims ledger.jsonl claims.json      # exit 1 if any README number is stale
 ```
 
-The LLM planner is optional. Install with `pip install -e ".[llm]"` and set `ANTHROPIC_API_KEY`.
+The LLM planner is optional. Install with `pip install -e ".[llm]"`, then set `ANTHROPIC_API_KEY` and `LOOPGRAPH_LLM_MODEL`.
 Without them, every campaign runs on the deterministic planners.
 
 ## Use
