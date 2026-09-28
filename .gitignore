@@ -6,7 +6,7 @@ __pycache__/
 build/
 dist/
 # harness state: cache is reproducible, ledgers are committed per project on purpose
-.loopgraph/cache/
+.loopgraph/
 artifacts/
 *.o
 *.elf
