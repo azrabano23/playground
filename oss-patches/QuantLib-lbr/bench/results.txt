@@ -1,40 +1,40 @@
 cases on grid: 1326, usable (price representable and inside bounds): 621
 
 all usable cases: 621 cases
-solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  max/(eps*c)
-LetsBeRational                          621      0   1.45e-16   1.83e-06   1.00e+00        10         7          134
-ImpliedStdDev (default, acc 1e-6)       621      0   3.70e-08   1.00e+00   1.00e+00       341       159      4.5e+15
-ImpliedStdDev (acc 1e-12)               621      0   1.52e-13   1.00e+00   1.00e+00        78        53      4.5e+15
-LiRS (default, acc 1e-6)                536     85   7.79e-09   5.56e-03   2.18e-02       313       100     9.83e+13
+solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  err>1e-3  max/(eps*c)
+LetsBeRational                          621      0   1.45e-16   1.83e-06   1.00e+00        10         7         5          134
+ImpliedStdDev (default, acc 1e-6)       621      0   3.70e-08   1.00e+00   1.00e+00       341       159        59      4.5e+15
+ImpliedStdDev (acc 1e-12)               621      0   1.52e-13   1.00e+00   1.00e+00        78        53        51      4.5e+15
+LiRS (default, acc 1e-6)                536     85   7.79e-09   5.56e-03   2.18e-02       313       100         7     9.83e+13
 
 well-conditioned (cond <= 1e3): 570 cases
-solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  max/(eps*c)
-LetsBeRational                          570      0   1.45e-16   2.49e-15   3.49e-14         0         0         2.94
-ImpliedStdDev (default, acc 1e-6)       570      0   4.60e-08   1.00e+00   1.00e+00       314       149      4.5e+15
-ImpliedStdDev (acc 1e-12)               570      0   1.22e-13   1.00e+00   1.00e+00        67        49      4.5e+15
-LiRS (default, acc 1e-6)                486     84   6.04e-09   6.33e-04   2.18e-02       275        83     9.83e+13
+solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  err>1e-3  max/(eps*c)
+LetsBeRational                          570      0   1.45e-16   2.49e-15   3.49e-14         0         0         0         2.94
+ImpliedStdDev (default, acc 1e-6)       570      0   4.60e-08   1.00e+00   1.00e+00       314       149        57      4.5e+15
+ImpliedStdDev (acc 1e-12)               570      0   1.22e-13   1.00e+00   1.00e+00        67        49        49      4.5e+15
+LiRS (default, acc 1e-6)                486     84   6.04e-09   6.33e-04   2.18e-02       275        83         5     9.83e+13
 
 out-of-the-money options only: 366 cases
-solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  max/(eps*c)
-LetsBeRational                          366      0   1.39e-16   1.42e-15   2.49e-15         0         0         2.94
-ImpliedStdDev (default, acc 1e-6)       366      0   4.98e-08   1.00e+00   1.00e+00       212       110      4.5e+15
-ImpliedStdDev (acc 1e-12)               366      0   2.86e-13   1.00e+00   1.00e+00        63        49      4.5e+15
-LiRS (default, acc 1e-6)                282     84   6.51e-09   6.33e-04   2.18e-02       161        51     9.83e+13
+solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  err>1e-3  max/(eps*c)
+LetsBeRational                          366      0   1.39e-16   1.42e-15   2.49e-15         0         0         0         2.94
+ImpliedStdDev (default, acc 1e-6)       366      0   4.98e-08   1.00e+00   1.00e+00       212       110        54      4.5e+15
+ImpliedStdDev (acc 1e-12)               366      0   2.86e-13   1.00e+00   1.00e+00        63        49        49      4.5e+15
+LiRS (default, acc 1e-6)                282     84   6.51e-09   6.33e-04   2.18e-02       161        51         3     9.83e+13
 
 ill-conditioned (cond > 1e3; only max/(eps*c) is meaningful): 51 cases
-solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  max/(eps*c)
-LetsBeRational                           51      0   2.31e-16   1.00e+00   1.00e+00        10         7          134
-ImpliedStdDev (default, acc 1e-6)        51      0   1.58e-08   5.35e-03   5.35e-03        27        10     3.98e+08
-ImpliedStdDev (acc 1e-12)                51      0   1.36e-11   5.35e-03   5.35e-03        11         4         81.8
-LiRS (default, acc 1e-6)                 50      1   2.48e-07   5.56e-03   5.56e-03        38        17     2.27e+06
+solver                                   ok   fail     median        p99        max  err>1e-9  err>1e-6  err>1e-3  max/(eps*c)
+LetsBeRational                           51      0   2.31e-16   1.00e+00   1.00e+00        10         7         5          134
+ImpliedStdDev (default, acc 1e-6)        51      0   1.58e-08   5.35e-03   5.35e-03        27        10         2     3.98e+08
+ImpliedStdDev (acc 1e-12)                51      0   1.36e-11   5.35e-03   5.35e-03        11         4         2         81.8
+LiRS (default, acc 1e-6)                 50      1   2.48e-07   5.56e-03   5.56e-03        38        17         2     2.27e+06
 
 LetsBeRational worst error/(eps*cond) 134 at call x=1.5 s=0.2 cond=3.36e+13
 
 LetsBeRational Householder iterations:  1: 10  2: 611
 
 timing on the common subset (536 cases), ns per call, best of 5 runs
-LetsBeRational                            738
-ImpliedStdDev (default, acc 1e-6)        2284
-ImpliedStdDev (acc 1e-12)                3124
-LiRS (default, acc 1e-6)                  669
-LetsBeRational                            632  (all 621 usable cases)
+LetsBeRational                            730
+ImpliedStdDev (default, acc 1e-6)        2097
+ImpliedStdDev (acc 1e-12)                3643
+LiRS (default, acc 1e-6)                  994
+LetsBeRational                            911  (all 621 usable cases)

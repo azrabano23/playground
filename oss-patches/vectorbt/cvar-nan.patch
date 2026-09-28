@@ -1,0 +1,113 @@
+From b9d65f19dbb3fcfbb6861eb852be7c958b15b985 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:30:05 +0000
+Subject: [PATCH] fix(returns): exclude NaNs from the tail size in
+ cond_value_at_risk
+
+cond_value_at_risk_1d_nb computed the cutoff index from len(returns),
+NaNs included, and np.partition sorts NaNs to the end. Returns from
+pct_change() start with a NaN, so the tail could hold one observation
+too many. When most values were NaN, the tail reached into the NaNs and
+the result was NaN. value_at_risk already drops NaNs first.
+
+Drop NaNs before partitioning in both the Numba and the Rust kernels.
+---
+ rust/src/returns.rs    | 12 +++---------
+ tests/test_engine.py   | 11 +++++++++++
+ tests/test_returns.py  | 12 ++++++++++++
+ vectorbt/returns/nb.py |  1 +
+ 4 files changed, 27 insertions(+), 9 deletions(-)
+
+diff --git a/rust/src/returns.rs b/rust/src/returns.rs
+index 2cdb35e..d7fe52a 100644
+--- a/rust/src/returns.rs
++++ b/rust/src/returns.rs
+@@ -6,7 +6,6 @@ use ndarray::{Array2, ArrayView2};
+ use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
+ use pyo3::exceptions::PyValueError;
+ use pyo3::prelude::*;
+-use std::cmp::Ordering;
+ 
+ fn validate_same_shape_2d(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>, name: &str) -> PyResult<()> {
+     if a.dim() != b.dim() {
+@@ -762,17 +761,12 @@ pub(crate) fn value_at_risk_1d(returns: &[f64], cutoff: f64) -> f64 {
+ }
+ 
+ pub(crate) fn cond_value_at_risk_1d(returns: &[f64], cutoff: f64) -> f64 {
+-    if returns.is_empty() {
++    let mut vals: Vec<f64> = returns.iter().copied().filter(|value| !value.is_nan()).collect();
++    if vals.is_empty() {
+         return f64::NAN;
+     }
+-    let mut vals = returns.to_vec();
+     let cutoff_index = ((vals.len() - 1) as f64 * cutoff) as usize;
+-    vals.select_nth_unstable_by(cutoff_index, |left, right| match (left.is_nan(), right.is_nan()) {
+-        (true, true) => Ordering::Equal,
+-        (true, false) => Ordering::Greater,
+-        (false, true) => Ordering::Less,
+-        (false, false) => left.partial_cmp(right).unwrap(),
+-    });
++    vals.select_nth_unstable_by(cutoff_index, |left, right| left.partial_cmp(right).unwrap());
+     mean_strict(&vals[..cutoff_index + 1])
+ }
+ 
+diff --git a/tests/test_engine.py b/tests/test_engine.py
+index 097c60d..e4f9df6 100644
+--- a/tests/test_engine.py
++++ b/tests/test_engine.py
+@@ -902,6 +902,17 @@ class TestReturnsRustParity:
+             np.full(2, np.nan),
+         )
+         np.testing.assert_array_equal(returns_nb.cond_value_at_risk_nb(empty_returns), np.full(2, np.nan))
++        nan_returns = np.column_stack(
++            (
++                np.concatenate(([np.nan], np.linspace(-0.1, 0.09, 20))),
++                np.concatenate((np.full(20, np.nan), [-0.1])),
++            )
++        )
++        np.testing.assert_allclose(returns_nb.cond_value_at_risk_nb(nan_returns), np.array([-0.1, -0.1]))
++        np.testing.assert_allclose(
++            returns_dispatch.cond_value_at_risk(nan_returns, engine="rust"),
++            returns_nb.cond_value_at_risk_nb(nan_returns),
++        )
+ 
+     def test_accessor_methods_match_numba(self):
+         price = pd.DataFrame(
+diff --git a/tests/test_returns.py b/tests/test_returns.py
+index 41e4b82..df9b7b9 100644
+--- a/tests/test_returns.py
++++ b/tests/test_returns.py
+@@ -517,6 +517,18 @@ class TestAccessors:
+             ),
+         )
+ 
++    def test_cond_value_at_risk_ignores_nan(self):
++        # NaNs must not count towards the tail size, same as in value_at_risk
++        sr = pd.Series(np.linspace(-0.1, 0.09, 20))
++        sr_nan = pd.concat((pd.Series([np.nan]), sr), ignore_index=True)
++        np.testing.assert_allclose(sr_nan.vbt.returns(freq="d").cond_value_at_risk(cutoff=0.05), -0.1)
++        np.testing.assert_allclose(
++            sr_nan.vbt.returns(freq="d").cond_value_at_risk(cutoff=0.05),
++            sr.vbt.returns(freq="d").cond_value_at_risk(cutoff=0.05),
++        )
++        sr_mostly_nan = pd.Series([np.nan] * 30 + [-0.1])
++        np.testing.assert_allclose(sr_mostly_nan.vbt.returns(freq="d").cond_value_at_risk(cutoff=0.05), -0.1)
++
+     def test_capture(self):
+         assert isclose(rets["a"].vbt.returns.capture(benchmark_rets["a"]), 0.0007435597416888084)
+         pd.testing.assert_series_equal(
+diff --git a/vectorbt/returns/nb.py b/vectorbt/returns/nb.py
+index 3a420a7..67895bb 100644
+--- a/vectorbt/returns/nb.py
++++ b/vectorbt/returns/nb.py
+@@ -633,6 +633,7 @@ def rolling_value_at_risk_nb(
+ @njit(cache=True)
+ def cond_value_at_risk_1d_nb(returns: tp.Array1d, cutoff: float = 0.05) -> float:
+     """Conditional value at risk (CVaR) of a returns stream."""
++    returns = returns[~np.isnan(returns)]
+     if len(returns) == 0:
+         return np.nan
+     cutoff_index = int((len(returns) - 1) * cutoff)
+-- 
+2.43.0
+

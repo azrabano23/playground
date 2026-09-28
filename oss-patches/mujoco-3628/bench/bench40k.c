@@ -30,7 +30,7 @@ static void warn_cb(const char* msg) { if (nwarn_seen++ < 3) fprintf(stderr, "[w
 static void kick(const mjModel* m, mjData* d, int reset) {
   if (reset) {
     mj_resetData(m, d);
-    d->qpos[0] = uni(-1, 1); d->qpos[1] = uni(-1, 1); d->qpos[2] = uni(0.06, 0.4);
+    d->qpos[0] = uni(-1, 1); d->qpos[1] = uni(-1, 1); d->qpos[2] = uni(0.06, 0.25);
     double q[4] = {uni(-1, 1), uni(-1, 1), uni(-1, 1), uni(-1, 1)};
     mju_normalize4(q);
     for (int i=0; i < 4; i++) d->qpos[3+i] = q[i];
@@ -66,7 +66,9 @@ int main(int argc, char** argv) {
   int neval_max = 0; double maxdev = 0, tsolve = 0;
   long nls_exhaust = 0;
   kick(m, d, 1);
-  for (int s=0; s < nsolve; s++) {
+  long nstep = 0;
+  for (int s=0; ncontact < nsolve; s++) {
+    nstep++;
     if (s % 200 == 0) kick(m, d, 1);          // new drop every 200 steps
     else if (s % 50 == 0) kick(m, d, 0);      // velocity kick every 50 steps
 
@@ -93,7 +95,15 @@ int main(int argc, char** argv) {
       for (int i=0; i < n && i < mjNSOLVER; i++) {
         neval_sum += t->solver[i].neval;
         if (t->solver[i].neval > neval_max) neval_max = t->solver[i].neval;
-        nls_exhaust += t->solver[i].neval >= ls;
+        if (t->solver[i].neval >= ls) {
+          nls_exhaust++;
+          if (getenv("BENCH_TRACE") && nls_exhaust == atoi(getenv("BENCH_TRACE"))) {
+            setenv("MJ_LSTRACE", "1", 1);
+            mj_setState(m, t, state, mjSTATE_FULLPHYSICS | mjSTATE_WARMSTART);
+            mj_forward(m, t);
+            unsetenv("MJ_LSTRACE");
+          }
+        }
       }
       double grad = n ? t->solver[(n < mjNSOLVER ? n : mjNSOLVER) - 1].gradient : 0;
       if (grad > 1e-3) {
@@ -110,14 +120,14 @@ int main(int argc, char** argv) {
     mj_step(m, d);
     if (d->qpos[2] < -1 || d->qpos[2] > 10) kick(m, d, 1);
   }
-  printf("cone=%s impratio=%s ls_iterations=%d mjtNum=%zuB solves=%d with_contact=%ld\n",
-         cone, impratio, ls, sizeof(mjtNum), nsolve, ncontact);
+  printf("cone=%s impratio=%s ls_iterations=%d mjtNum=%zuB steps=%ld solves_with_contact=%ld\n",
+         cone, impratio, ls, sizeof(mjtNum), nstep, ncontact);
   printf("  |qacc-ref|>1: %ld  (max %.3g)\n", ndev1, maxdev);
   printf("  final gradient>1e-3: %ld   of which restart gives 0 iterations: %ld\n", nunconv, nfixed);
   printf("  line searches: %ld  mean evals %.2f  max evals %d  exhausted(neval>=ls) %ld\n",
          niter_sum, niter_sum ? (double)neval_sum/niter_sum : 0.0, neval_max, nls_exhaust);
   printf("  mean newton iters %.3f  mean mj_forward time %.2f us\n",
-         ncontact ? (double)niter_sum/ncontact : 0.0, 1e6*tsolve/nsolve);
+         ncontact ? (double)niter_sum/ncontact : 0.0, 1e6*tsolve/nstep);
   printf("  warnings printed: %d\n", nwarn_seen);
   return 0;
 }

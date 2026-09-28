@@ -127,11 +127,11 @@ int main(int argc, char** argv) {
         for (const auto& c : cases)
             n += in(c);
         std::printf("%s: %zu cases\n", title, n);
-        std::printf("%-36s %6s %6s %10s %10s %10s %9s %9s %12s\n", "solver", "ok", "fail",
-                    "median", "p99", "max", "err>1e-9", "err>1e-6", "max/(eps*c)");
+        std::printf("%-36s %6s %6s %10s %10s %10s %9s %9s %9s %12s\n", "solver", "ok", "fail",
+                    "median", "p99", "max", "err>1e-9", "err>1e-6", "err>1e-3", "max/(eps*c)");
         for (size_t i = 0; i < solvers.size(); ++i) {
             std::vector<double> errs;
-            int ok = 0, fail = 0, big9 = 0, big6 = 0;
+            int ok = 0, fail = 0, big9 = 0, big6 = 0, big3 = 0;
             double worstNorm = 0;
             for (size_t j = 0; j < cases.size(); ++j) {
                 if (!in(cases[j]))
@@ -145,13 +145,14 @@ int main(int argc, char** argv) {
                 errs.push_back(e);
                 big9 += e > 1e-9;
                 big6 += e > 1e-6;
+                big3 += e > 1e-3;
                 worstNorm = std::max(worstNorm, e / (QL_EPSILON * cases[j].cond));
             }
-            std::printf("%-36s %6d %6d %10.2e %10.2e %10.2e %9d %9d %12.3g\n",
+            std::printf("%-36s %6d %6d %10.2e %10.2e %10.2e %9d %9d %9d %12.3g\n",
                         solvers[i].name.c_str(), ok, fail, percentile(errs, 0.5),
                         percentile(errs, 0.99),
                         errs.empty() ? NAN : *std::max_element(errs.begin(), errs.end()), big9,
-                        big6, worstNorm);
+                        big6, big3, worstNorm);
         }
         std::printf("\n");
     };
