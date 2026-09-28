@@ -178,8 +178,13 @@ void {name}_forward(const int8_t in[{up}_IN], int8_t out[{up}_OUT]);
         parts.append(_arr("int8_t", f"W{i}", l.w))
         parts.append(_arr("int32_t", f"B{i}", l.b))
         parts.append(_arr("int32_t", f"M{i}", l.m))
+    # hidden activations ping-pong between two buffers; declare only the ones
+    # used, since an unused static is a -Werror failure for shallow networks
     width = max(dims)
-    parts.append(f"\nstatic int8_t buf_a[{width}], buf_b[{width}];\n\n")
+    nbuf = min(2, len(q.layers) - 1)
+    for i in range(nbuf):
+        parts.append(f"\nstatic int8_t buf_{'ab'[i]}[{width}];")
+    parts.append("\n\n")
     parts.append(
         "static void dense(const int8_t *x, int nin, int nout, const int8_t *w,\n"
         "                  const int32_t *b, const int32_t *m, int n, int8_t lo, int8_t *y)\n"

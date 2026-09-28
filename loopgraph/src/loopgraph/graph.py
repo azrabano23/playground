@@ -8,6 +8,9 @@ re-runs exactly the nodes downstream of that knob and nothing else.
 
 This is the same idea as a build system (Bazel, Make) applied to research:
 the graph is the unit of reproducibility, not the notebook.
+
+Limit: the key covers a node's own source, not the code it calls. When a
+library a node depends on changes behaviour, bump that node's `version`.
 """
 
 from __future__ import annotations

@@ -61,3 +61,13 @@ def test_object_size_reports_rodata():
         pytest.skip(str(e))
     const = sum(v for k, v in s.items() if k.startswith((".rodata", ".data", ".text")))
     assert const >= q.param_bytes
+
+
+@needs_cc
+@pytest.mark.parametrize("dims", [[5, 3], [5, 8, 3], [5, 8, 8, 3], [5, 8, 8, 8, 3]])
+def test_every_depth_compiles_and_is_exact(dims):
+    """Regression: a one-hidden-layer net declared an unused buffer (-Werror)."""
+    rng = np.random.default_rng(4)
+    X = rng.normal(size=(100, dims[0]))
+    q = quantize_mlp(random_mlp(dims, seed=5), X)
+    assert bit_exact_mlp(q, q.quantize_input(X), "d").ok
