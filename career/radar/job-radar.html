@@ -113,7 +113,7 @@ const ui={track:"all",status:"open"};
 try{const s=JSON.parse(localStorage.getItem("radar-ui")||"{}");Object.assign(ui,s)}catch(e){}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const safeUrl=u=>/^https:\/\//.test(u||"")?u:null;
+const safeUrl=u=>/^(https:\/\/|\/_blob\/)/.test(u||"")?u:null;
 
 function chips(el,map,key){
   el.querySelectorAll(".chip").forEach(c=>c.remove());

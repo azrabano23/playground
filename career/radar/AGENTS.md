@@ -1,13 +1,13 @@
 # Job radar: the hourly agent graph
 
 Runs every hour as a Claude Code routine ("Job Radar hourly"). Each run is a fresh session, so
-everything it needs is in this file, the wiki, the dashboard's database, and the private Drive
-doc.
+everything it needs is in this file, the wiki, and the dashboard's database.
 
 - **Dashboard:** https://claude.ai/artifact/534oBzYhipqSatwCJgc3r3 (source `radar/job-radar.html`).
   Its database is read and written with the `ArtifactData` tool (load via ToolSearch).
-- **Private facts:** Google Drive doc **"Career Wiki — Private"** (phone, grad date, pipeline,
-  do-not-resurface list, offer deadline).
+- **Private facts:** dashboard DB doc `meta/private` (phone, canonical grad date, pipeline,
+  do-not-resurface list). The dashboard is private to Azra. A fuller human copy is the Google Drive
+  doc **"Career Wiki — Private"**, but routine sessions have no Drive connector, so they use the DB doc.
 - **Resume builder:** `career/resume/build.py` (needs `pip install typst pymupdf`).
 
 The shape follows Anthropic's guidance on effective agents: an **orchestrator** routes work to
@@ -29,7 +29,7 @@ Azra. Workers return structured JSON, not prose.
           ▼                      ▼
   drafter → critic →     D. EVALUATOR: dedupe, eligibility, US, comp, freshness,
   build.py gate →           fit score, verify posting is open  → top 5–10 (never pad)
-  Drive upload →                 │
+  asset upload →                 │
   row update                     ▼
                          E. REFERRALS: Rutgers alumni search + DM draft per kept job
                                  │
@@ -39,10 +39,11 @@ Azra. Workers return structured JSON, not prose.
 
 ## 0. Setup (every run)
 
-1. `cd` to the repo. If `career/` is missing (the PR that adds it is not merged yet):
-   `git fetch origin claude/sleepy-wright-h3e4gl && git checkout FETCH_HEAD -- career`.
+1. Get the repo: `git clone -q https://github.com/azrabano23/playground && cd playground`. If
+   `career/` is missing (the PR that adds it is not merged yet):
+   `git fetch -q origin claude/sleepy-wright-h3e4gl && git checkout FETCH_HEAD -- career`.
 2. Read `career/CLAUDE.md`, `career/wiki/profile.md`, `career/wiki/resume-rules.md`.
-3. Read the Drive doc "Career Wiki — Private" (search Drive by title).
+3. `ArtifactData get` `meta/private` (phone, grad date, pipeline, do-not-resurface list).
 4. `ArtifactData list` collection `jobs` (all pages) and `programs`, and `get` `meta/radar`.
    Build the set of known posting URLs and companies to exclude.
 5. **Network:** the container's shell proxy blocks most job boards (greenhouse, ashby, lever,
@@ -65,13 +66,15 @@ For every `jobs/*` row with `status == "yes"` and no `resume_url`, run one worke
    banned words, accuracy against the wiki, required categories present). It returns a list of
    violations. Fix them and re-run the critic, at most 3 rounds.
 4. **Gate**: `python career/resume/build.py career/applications/<job-id>/resume.typ` must print
-   `ok`. The phone number comes from the private doc via env `RESUME_PHONE`.
+   `ok`. The phone number comes from `meta/private` via env `RESUME_PHONE`.
    WebFetch every link it prints; drop or fix any that fail.
-5. **Deliver**: upload the PDF to Drive (folder "Tailored Resumes", create it if missing) as
-   `Azra_Bano_<Company>_<Role>.pdf` with `mcp__Google_Drive__create_file` (base64,
-   `application/pdf`, `disableConversionToGoogleType: true`). Then `ArtifactData update`
-   `jobs/<id>` with `resume_url` (the Drive viewUrl), `resume_notes` (3–5 lines on what was
-   emphasized and why), and `referral_dm` if missing.
+5. **Deliver**: name the file `Azra_Bano_<Company>_<Role>.pdf` and upload it to the dashboard's
+   asset store: `Artifact` tool, `action: "publish"`, `url` = the dashboard URL, `file_path` = the PDF,
+   `asset: true`. Then `ArtifactData update` `jobs/<id>` (pinned with `if_version`) with
+   `resume_url` = the `url` the upload returned (exactly as given), `resume_asset_id`,
+   `resume_notes` (3–5 lines on what was emphasized and why), and `referral_dm` if missing. If a
+   Google Drive connector happens to be available, also upload a copy to the Drive folder
+   "Tailored Resumes".
 6. Do not commit tailored resumes to the public repo.
 
 ## B. Scouts (parallel workers; each returns candidates JSON)
@@ -108,7 +111,7 @@ Document shape: `{name, org, deadline (ISO date or null), deadline_text, url, no
 
 Drop a candidate if any of these hold:
 - Already in the DB (same URL, or same company + title), or the company/role is on the
-  private doc's do-not-resurface list (rejections with a cooldown, roles already applied to).
+  `meta/private` do-not-resurface list (rejections with a cooldown, roles already applied to).
 - Not in the US, or PhD-only, or senior-only (4+ years required).
 - Eligibility clashes with her graduation date (the private doc has the canonical date;
   e.g. "must graduate Dec 2027 or later" for an Aug 2027 grad). Keep borderline cases but
