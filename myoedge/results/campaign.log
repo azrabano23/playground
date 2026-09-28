@@ -1,7 +1,0 @@
-[  pareto] {'window': 60, 'vote': 7, 'classifier': 'lda', 'aug': 1.0, 'recal': 1} -> shift acc 0.875 (p10 0.726, min 0.682) 270 ms 456 B ok
-[  random] {'window': 60, 'vote': 5, 'classifier': 'mlp16', 'aug': 1.0, 'recal': 0} -> shift acc 0.852 (p10 0.686, min 0.639) 230 ms 1016 B ok
-[  pareto] {'window': 40, 'vote': 5, 'classifier': 'lda', 'aug': 0.0, 'recal': 1} -> shift acc 0.898 (p10 0.698, min 0.586) 180 ms 456 B ok
-[  random] {'window': 60, 'vote': 1, 'classifier': 'mlp16', 'aug': 1.5, 'recal': 1} -> shift acc 0.833 (p10 0.679, min 0.634) 150 ms 1016 B ok
-[  pareto] {'window': 40, 'vote': 7, 'classifier': 'lda', 'aug': 0.0, 'recal': 1} -> shift acc 0.899 (p10 0.694, min 0.584) 220 ms 456 B ok
-[  random] {'window': 40, 'vote': 7, 'classifier': 'mlp16', 'aug': 1.0, 'recal': 0} -> shift acc 0.853 (p10 0.678, min 0.634) 220 ms 1016 B ok
-[  pareto] {'window': 50, 'vote': 7, 'classifier': 'lda', 'aug': 1.0, 'recal': 1} -> shift acc 0.874 (p10 0.728, min 0.681) 245 ms 456 B ok

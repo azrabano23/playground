@@ -1,0 +1,8 @@
+[  design] {'classifier': 'lda', 'aug': 0.0, 'recal': 0} -> shift acc 0.524 (p10 0.367, min 0.142) 140 ms 456 B ok
+[  design] {'classifier': 'lda', 'aug': 1.0, 'recal': 0} -> shift acc 0.809 (p10 0.621, min 0.545) 140 ms 456 B ok
+[  design] {'classifier': 'lda', 'aug': 0.0, 'recal': 1} -> shift acc 0.897 (p10 0.702, min 0.587) 140 ms 456 B ok
+[  design] {'classifier': 'lda', 'aug': 1.0, 'recal': 1} -> shift acc 0.868 (p10 0.730, min 0.582) 140 ms 456 B ok
+[  design] {'classifier': 'mlp16', 'aug': 0.0, 'recal': 0} -> shift acc 0.540 (p10 0.416, min 0.043) 140 ms 1016 B ok
+[  design] {'classifier': 'mlp16', 'aug': 1.0, 'recal': 0} -> shift acc 0.849 (p10 0.675, min 0.631) 140 ms 1016 B ok
+[  design] {'classifier': 'mlp16', 'aug': 0.0, 'recal': 1} -> shift acc 0.855 (p10 0.593, min 0.559) 140 ms 1016 B ok
+[  design] {'classifier': 'mlp16', 'aug': 1.0, 'recal': 1} -> shift acc 0.846 (p10 0.653, min 0.552) 140 ms 1016 B ok
