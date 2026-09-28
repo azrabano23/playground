@@ -1,9 +1,6 @@
 // Standalone accuracy/speed benchmark for Black implied std-dev solvers.
-// Not part of the patch.  Build (from this directory) with e.g.
-//
-//   g++ -std=c++17 -O2 -I$QL -I$QL/build lbr_bench.cpp -L$QL/build/ql -lQuantLib \
-//       -Wl,-rpath,$QL/build/ql -o lbr_bench
-//   ./lbr_bench cases.csv > results.txt
+// Not part of the patch. See build.sh for how it is compiled: the solver
+// sources are compiled at -O2 directly into the executable.
 //
 // cases.csv comes from gen_cases.py (mpmath, 50 digits).
 
