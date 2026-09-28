@@ -7,4 +7,4 @@ I checked with a strategy like yours: `RunMonthly` + `WeighSpecified(a=1.0)` + `
 - before f76ca25: 0.74, 0.54, 0.40, 0.29, 0.21, 0.15
 - current master: 0.74, 0.74, 0.74, 0.74, 0.74, 0.75
 
-It isn't in a tagged release yet, as far as I can tell. Until it is, you can install from master. Could this be closed?
+The latest release, v1.2.3 (Sep 11), predates the fix. Until the next release you can install from master. Could this be closed?
