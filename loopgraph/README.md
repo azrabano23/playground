@@ -72,4 +72,4 @@ Campaign("exp", {"width": [8, 16, 32, 64]}, execute, L,
          gates=[at_least("acc", 0.9)], budget=12).run()
 ```
 
-`pip install -e ".[test]" && pytest` runs 25 tests. The C gates need a host C compiler.
+`pip install -e ".[test]" && pytest` runs 31 tests. The C gates need a host C compiler. `report.table` renders ledger entries as markdown, so result tables are generated rather than typed.
