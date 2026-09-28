@@ -333,6 +333,7 @@ int main(int argc, char **argv)
     // --- are the failures real? (brute force on every failed pair) -------------------
     {
         int feasible = 0;
+        double maxInfeasibleDist = 0.;
         std::map<RefKind, int> kinds;
         for (int i : failed)
         {
@@ -342,9 +343,18 @@ int main(int argc, char **argv)
             kinds[ref.kind]++;
             if (ref.kind != RefKind::INFEASIBLE)
                 ++feasible;
+            else
+            {
+                double d = std::hypot((*s2)[0] - (*s1)[0], (*s2)[1] - (*s1)[1]) / rho;
+                maxInfeasibleDist = std::max(maxInfeasibleDist, d);
+            }
         }
         std::printf("failed pairs for which brute force finds a path: %d of %zu (medium family %d, helix family %d)\n",
                     feasible, failed.size(), kinds[RefKind::MEDIUM], kinds[RefKind::HIGH]);
+        if (feasible < (int)failed.size())
+            std::printf("  the others have no Owen-type solution at all; largest horizontal distance among them: %.3g "
+                        "turn radii\n",
+                        maxInfeasibleDist);
     }
 
     // --- gap vs brute-force reference -------------------------------------------

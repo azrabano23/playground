@@ -1,0 +1,3 @@
+/bin/bash: line 1: 26519 Segmentation fault      timeout 60 env PYTHONHASHSEED=2 /home/user/oss3/$p/bin/python $sc > /dev/null 2>&1
+[0.5.10 (PyPI wheel)] neg_only.py exit=139 :: <no output>
+[0.5.10 (PyPI wheel)] huge_rel.py exit=0 :: {"q1": {"P_1": 0.0, "ndcg": 0.0}, "q2": {"P_1": 0.0, "ndcg": 0.0}}

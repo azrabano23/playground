@@ -1,0 +1,49 @@
+From cdd8c976397814c566acd380e758eda99f8385c5 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:46:25 +0000
+Subject: [PATCH] fix: require pytrec-eval-terrier>=0.5.8
+
+pytrec-eval-terrier < 0.5.8 scores queries that have no relevance
+judgments from uninitialised memory inside trec_eval. This can crash,
+or make every later query in the same evaluate() call return stale
+scores, including NDCG > 1 (#3030). 0.5.8 drops such queries before
+they reach the C extension.
+
+AbsTaskRetrieval already filters them out (#3058). However,
+calculate_retrieval_scores, which is also used for the FollowIR
+og/changed scores and for max-over-subqueries, does not filter them
+itself, so the minimum version is the backstop.
+---
+ pyproject.toml | 2 +-
+ uv.lock        | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/pyproject.toml b/pyproject.toml
+index df4adf8..671ecd9 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -42,7 +42,7 @@ dependencies = [
+     "torch>=2.0.0",
+     "tqdm>1.0.0",
+     "rich>=13.0.0",
+-    "pytrec-eval-terrier>=0.5.6",
++    "pytrec-eval-terrier>=0.5.8", # <0.5.8 mis-scores queries without qrels, see #3030
+     "pydantic>=2.11.0",
+     "polars>=1.0.0",
+ ]
+diff --git a/uv.lock b/uv.lock
+index 0ef234c..e24cda8 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -7338,7 +7338,7 @@ requires-dist = [
+     { name = "pylate", marker = "extra == 'pylate'", specifier = ">=1.3.1" },
+     { name = "pymongo", marker = "extra == 'leaderboard'", specifier = ">=4.15.5" },
+     { name = "pystemmer", marker = "extra == 'bm25s'", specifier = ">=2.2.0.3" },
+-    { name = "pytrec-eval-terrier", specifier = ">=0.5.6" },
++    { name = "pytrec-eval-terrier", specifier = ">=0.5.8" },
+     { name = "qwen-omni-utils", marker = "extra == 'qwen-omni-utils'" },
+     { name = "qwen-vl-utils", marker = "extra == 'eager-embed'", specifier = ">=0.0.14" },
+     { name = "qwen-vl-utils", marker = "extra == 'qwen-vl'", specifier = ">=0.0.14" },
+-- 
+2.43.0
+
