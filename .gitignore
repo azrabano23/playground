@@ -12,3 +12,7 @@ artifacts/
 *.elf
 a.out
 myoedge/data/
+
+# career: private files and build outputs stay local
+career/private/
+career/**/*.png
