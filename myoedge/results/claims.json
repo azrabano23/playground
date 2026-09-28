@@ -1,0 +1,18 @@
+[
+ {"id": "within", "experiment": "within", "metric": "acc_within", "value": 0.950, "tol": 0.001,
+  "text": "no-shift ceiling"},
+ {"id": "base", "experiment": "compare", "metric": "acc_shift", "value": 0.524, "tol": 0.001,
+  "params": {"classifier": "lda", "aug": 0.0, "recal": 0}, "text": "baseline after shift"},
+ {"id": "aug", "experiment": "compare", "metric": "acc_shift", "value": 0.809, "tol": 0.001,
+  "params": {"classifier": "lda", "aug": 1.0, "recal": 0}, "text": "rotation augmentation only"},
+ {"id": "recal", "experiment": "compare", "metric": "acc_shift", "value": 0.897, "tol": 0.001,
+  "params": {"classifier": "lda", "aug": 0.0, "recal": 1}, "text": "one-fist recalibration"},
+ {"id": "base_p10", "experiment": "compare", "metric": "acc_p10", "value": 0.367, "tol": 0.001,
+  "params": {"classifier": "lda", "aug": 0.0, "recal": 0}, "text": "baseline p10"},
+ {"id": "best", "experiment": "design", "metric": "acc_shift", "value": 0.904, "tol": 0.001,
+  "params": {"window": 40, "vote": 1, "classifier": "lda", "aug": 0.5, "recal": 1}, "text": "agent-found design"},
+ {"id": "best_p10", "experiment": "design", "metric": "acc_p10", "value": 0.722, "tol": 0.001,
+  "params": {"window": 40, "vote": 1, "classifier": "lda", "aug": 0.5, "recal": 1}, "text": "agent-found design p10"},
+ {"id": "best_delay", "experiment": "design", "metric": "latency_ms", "value": 100, "tol": 0,
+  "params": {"window": 40, "vote": 1, "classifier": "lda", "aug": 0.5, "recal": 1}, "text": "100 ms"}
+]
