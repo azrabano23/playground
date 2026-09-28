@@ -47,7 +47,7 @@ Standalone benchmark, not part of the PR. The grid has 1326 cases: x = ln(F/K) �
 
 The existing function's max error of 1.0 isn't a bug. Its tolerance is on the price, so it returns 0 for OTM options priced below 1e-6 (or 1e-12). On the 51 ill-conditioned cases (deep ITM, where the time value is a few ulps of the price), no double-precision method can do better than roughly ε·cond. There the new function stays within that bound except for 5 cases whose time value is within `close_enough` of intrinsic, where it returns 0 (the same policy as the Bachelier function).
 
-Timing, g++ -O2, on the 536 cases where all four return a value: LBR 730 ns/call, NewtonSafe 2100 (3600 at 1e-12), LiRS 990. The machine was busy while I measured, so treat these as ratios rather than absolute numbers. 611 of the 621 inversions took exactly two Householder steps and the other 10 took one.
+Timing, g++ -O2, on the 536 cases where all four return a value, over three runs: LBR 580–820 ns/call, NewtonSafe 2000–2300 (3000–3800 at accuracy 1e-12), LiRS 750–950. The machine was busy while I measured, so treat these as ratios rather than absolute numbers: roughly 3× faster than the default solver and a bit faster than LiRS. 611 of the 621 inversions took exactly two Householder steps and the other 10 took one.
 
 ### License note
 

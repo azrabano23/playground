@@ -271,8 +271,8 @@ broken.
 
 Speed at -O2, ns/call, on the 536 cases where every solver returns a value.
 The machine was heavily loaded, so treat these as ratios (see
-`bench/results.txt`): LBR ~730 ns, NewtonSafe ~2100 ns (default accuracy)
-and ~3600 ns (1e-12), LiRS ~990 ns. So LBR is about 3× faster than the
+`bench/timing-runs.txt`), over three runs: LBR 580–820 ns, NewtonSafe
+2000–2300 ns (default accuracy) and 3000–3800 ns (1e-12), LiRS 750–950 ns. So LBR is about 3× faster than the
 default solver and a bit faster than LiRS, while being accurate to the last
 few bits. Don't quote absolute nanoseconds as facts.
 
@@ -363,3 +363,25 @@ it in `ImpliedStdDevQuote`.
 `e^{x/2} − e^{−x/2}` cancels for small `x`. Doing it before normalising
 keeps every digit of the time value, and the time value is the only thing
 that carries volatility information for an ITM option.
+
+## 8. How it was built and tested (so you can reproduce it)
+
+* Configure: `cmake .. -G Ninja -DQL_BUILD_EXAMPLES=OFF -DQL_BUILD_BENCHMARK=OFF -DCMAKE_UNITY_BUILD=ON -DCMAKE_UNITY_BUILD_BATCH_SIZE=24 -DCMAKE_CXX_FLAGS="-O0 -g0"`.
+  The machine was shared and short on memory, hence `-O0` and the unity
+  build. Then `ninja ql_test_suite`. The test binary is
+  `test-suite/quantlib-test-suite`.
+* With batch size 24, one unity batch (`models/marketmodels/callability`,
+  which is unrelated to this change) fails to compile because of an existing
+  `CashFlow` typedef clash. I compiled those 24 files separately for the
+  local build. CI uses the default batch size, and the new file doesn't
+  change the batches before `pricingengines/`. I also compiled all of
+  `ql/pricingengines/*.cpp` as one translation unit in both orders (the way
+  Autotools does unity builds) to check the new anonymous-namespace helpers
+  don't clash.
+* `./quantlib-test-suite --run_test=QuantLibTests/BlackFormulaTests`
+  runs 18 cases, 6 of them new, all passing. They also pass at -O3, and the
+  new code compiles without warnings under g++ and clang++ with
+  `-Wall -Wextra -Wshadow`.
+* Before posting, run `./autogen.sh && ./configure && ./tools/check_filelists.sh`
+  if you can. I registered the files by hand in all three build systems but
+  didn't run that script.
