@@ -1,0 +1,1 @@
+[  pareto] {'window': 60, 'vote': 7, 'classifier': 'lda', 'aug': 1.0, 'recal': 1} -> shift acc 0.878 (p10 0.750, min 0.581) 270 ms 456 B ok
