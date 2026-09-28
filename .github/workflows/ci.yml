@@ -29,6 +29,11 @@ jobs:
         run: cd wormstage && pytest -q
       - name: myoedge
         run: cd myoedge && pytest -q
+      - name: ticktotrade (verilog sim vs golden model)
+        run: |
+          sudo apt-get update && sudo apt-get install -y iverilog
+          pip install -e ./ticktotrade[test]
+          cd ticktotrade && pytest -q
       - name: documented numbers match the ledgers
         run: |
           cd pocketpolicy && loopgraph claims results/ledger.jsonl results/claims.json && cd ..

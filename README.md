@@ -8,6 +8,7 @@ the cheapest chip in the robot, plus the harness that runs them.
 | [pocketpolicy](pocketpolicy) | How much of a big robot policy survives compression into a microcontroller? | SO-101 arm URDF | 90.5% closed-loop success in 6.4 KB (teacher 98.5%); DAgger adds 13–31 points to small students |
 | [wormstage](wormstage) | Does a robot driven by the worm's connectome develop the way the worm does? | *C. elegans* connectomes at 8 ages (Witvliet 2021) + adult (Cook 2019) | CPG-free crawling, worm-like gait change with the medium, and avoidance wiring specific from birth |
 | [myoedge](myoedge) | Can a $5 chip decode EMG for a prosthetic hand that still works after the armband is taken off and put back on? | 21 subjects, electrode-shift dataset (Campbell 2024) | one 3-second fist restores post-shift accuracy from 52% to 90%, at 100 ms delay in 456 B of weights |
+| [ticktotrade](ticktotrade) | How fast can an FPGA go from a NASDAQ ITCH tick to an OUCH order? | synthetic ITCH 5.0 over MoldUDP64 | 4-cycle (12.4 ns at an assumed 322 MHz) book-update-to-order in Verilog, bit-exact vs a Python golden model; 6.9k LUT on 7-series (yosys, no P&R) |
 | [loopgraph](loopgraph) | the harness | | |
 
 ## How the work is run
