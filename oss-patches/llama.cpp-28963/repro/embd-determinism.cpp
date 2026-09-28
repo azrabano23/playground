@@ -1,7 +1,10 @@
 // Repro for ggml-org/llama.cpp#28963: decode the same batch N times with a
 // cleared memory and hash the logits of every position.
 //
-// usage: embd-determinism <model.gguf> <embd|tokens> <n_tokens> <n_runs> [n_threads]
+// usage: embd-determinism <model.gguf> <embd|tokens> <n_tokens> <n_runs> [n_threads] [pos_mode]
+//   pos_mode: "n"    - batch from llama_batch_init(), pos[i] = i for i < n_tokens (default, like most callers)
+//             "full" - pos array sized n_tokens*4 in the M-RoPE section-major layout (what mtmd does)
+//             "null" - batch.pos = nullptr (positions auto-generated)
 #include "llama.h"
 
 #include <cstdio>
@@ -29,6 +32,7 @@ int main(int argc, char ** argv) {
     const int    n_tok   = atoi(argv[3]);
     const int    n_runs  = atoi(argv[4]);
     const int    n_thr   = argc > 5 ? atoi(argv[5]) : 1;
+    const std::string pos_mode = argc > 6 ? argv[6] : "n";
 
     llama_log_set([](ggml_log_level, const char *, void *) {}, nullptr);
     llama_backend_init();
@@ -61,12 +65,22 @@ int main(int argc, char ** argv) {
 
         llama_batch b = llama_batch_init(n_tok, use_emb ? n_embd : 0, 1);
         b.n_tokens = n_tok;
+        std::vector<llama_pos> pos_full;
+        if (pos_mode == "full") {
+            pos_full.resize((size_t) n_tok*4);
+            for (int j = 0; j < 4; ++j) for (int i = 0; i < n_tok; ++i) pos_full[(size_t) j*n_tok + i] = j < 3 ? i : 0;
+        }
         for (int i = 0; i < n_tok; ++i) {
             if (use_emb) memcpy(b.embd + (size_t) i*n_embd, embd.data() + (size_t) i*n_embd, n_embd*sizeof(float));
             else         b.token[i] = toks[i];
             b.pos[i] = i; b.n_seq_id[i] = 1; b.seq_id[i][0] = 0; b.logits[i] = 1;
         }
-        if (llama_decode(ctx, b) != 0) { fprintf(stderr, "decode failed\n"); return 1; }
+        llama_pos * pos_orig = b.pos;
+        if (pos_mode == "full") b.pos = pos_full.data();
+        if (pos_mode == "null") b.pos = nullptr;
+        const int ret = llama_decode(ctx, b);
+        b.pos = pos_orig;
+        if (ret != 0) { fprintf(stderr, "decode failed\n"); return 1; }
 
         uint64_t h = 1469598103934665603ULL;
         for (int i = 0; i < n_tok; ++i) h = fnv1a(llama_get_logits_ith(ctx, i), (size_t) n_vocab*sizeof(float), h);
@@ -75,7 +89,7 @@ int main(int argc, char ** argv) {
         seen[h]++;
         llama_batch_free(b);
     }
-    printf("mode=%s n_tokens=%d runs=%d distinct_hashes=%zu\n", use_emb ? "embd" : "tokens", n_tok, n_runs, seen.size());
+    printf("mode=%s pos=%s n_tokens=%d runs=%d distinct_hashes=%zu\n", use_emb ? "embd" : "tokens", pos_mode.c_str(), n_tok, n_runs, seen.size());
 
     llama_free(ctx);
     llama_model_free(model);
