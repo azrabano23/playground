@@ -181,26 +181,28 @@ namespace
 
         if (adz <= (len0 + TWOPI * rho) * tanP)
         {
-            // Medium altitude: extra turn phi at radius rho, then a Dubins path at rho.
-            auto h = [&](double phi)
-            {
-                double ang = s1.yaw + phi, rr = phi > 0 ? rho : -rho;
-                SE2 zi{s1.x + rr * (std::sin(ang) - std::sin(s1.yaw)), s1.y + rr * (-std::cos(ang) + std::cos(s1.yaw)),
-                       ang};
-                return std::abs(phi) * rho + dubinsMin(zi, s2, rho) - H;
-            };
+            // Medium altitude: extra turn phi at radius rho, then a Dubins path (any word) at radius rho.
             const int N = 4000;
-            for (int sgn : {1, -1})
-            {
-                double pa = 0., fa = h(0.);
-                for (int i = 1; i <= N; ++i)
+            for (int w = 0; w < 6; ++w)
+                for (int sgn : {1, -1})
                 {
-                    double pb = sgn * TWOPI * i / N, fb = h(pb);
-                    if ((fa <= 0) != (fb <= 0) && genuineRoot(h, pa, pb, fa, fb, tol))
-                        return {RefKind::MEDIUM, optimum};
-                    pa = pb, fa = fb;
+                    auto h = [&](double phi)
+                    {
+                        double ang = s1.yaw + phi, rr = phi > 0 ? rho : -rho;
+                        SE2 zi{s1.x + rr * (std::sin(ang) - std::sin(s1.yaw)),
+                               s1.y + rr * (-std::cos(ang) + std::cos(s1.yaw)), ang};
+                        return std::abs(phi) * rho + wordLengthAt(w, zi, s2, rho) - H;
+                    };
+                    double pa = 0., fa = h(0.);
+                    for (int i = 1; i <= N; ++i)
+                    {
+                        double pb = sgn * TWOPI * i / N, fb = h(pb);
+                        if (std::isfinite(fa) && std::isfinite(fb) && (fa <= 0) != (fb <= 0) &&
+                            genuineRoot(h, pa, pb, fa, fb, tol))
+                            return {RefKind::MEDIUM, optimum};
+                        pa = pb, fa = fb;
+                    }
                 }
-            }
             // fall through: also try the high-altitude family
         }
 
@@ -272,6 +274,7 @@ int main(int argc, char **argv)
     // --- correctness sweep --------------------------------------------------------
     int fails = 0, throws = 0, badEndpoint = 0, badConstraint = 0;
     std::map<char, int> catCount, catFail;
+    std::vector<int> failed;
     double maxEndErr = 0.;
     ob::State *tmp = space->allocState();
     for (int i = 0; i < numPairs; ++i)
@@ -292,12 +295,14 @@ int main(int argc, char **argv)
         {
             ++throws;
             ++fails;
+            failed.push_back(i);
             catFail[cat]++;
             continue;
         }
         if (!path)
         {
             ++fails;
+            failed.push_back(i);
             catFail[cat]++;
             continue;
         }
@@ -324,6 +329,23 @@ int main(int argc, char **argv)
                     100. * catFail[c.first] / c.second);
     std::printf("returned paths with endpoint error > 1e-5: %d (max error %.3g)\n", badEndpoint, maxEndErr);
     std::printf("returned paths violating radius/pitch limits: %d\n", badConstraint);
+
+    // --- are the failures real? (brute force on every failed pair) -------------------
+    {
+        int feasible = 0;
+        std::map<RefKind, int> kinds;
+        for (int i : failed)
+        {
+            auto *s1 = from[i]->as<ob::OwenStateSpace::StateType>();
+            auto *s2 = to[i]->as<ob::OwenStateSpace::StateType>();
+            Ref ref = bruteForce(toSE2(s1), toSE2(s2), (*s2)[2] - (*s1)[2], rho, tanP);
+            kinds[ref.kind]++;
+            if (ref.kind != RefKind::INFEASIBLE)
+                ++feasible;
+        }
+        std::printf("failed pairs for which brute force finds a path: %d of %zu (medium family %d, helix family %d)\n",
+                    feasible, failed.size(), kinds[RefKind::MEDIUM], kinds[RefKind::HIGH]);
+    }
 
     // --- gap vs brute-force reference -------------------------------------------
     int nRef = std::min(numRef, numPairs), refInfeasible = 0, refNonLow = 0;

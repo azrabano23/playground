@@ -31,7 +31,7 @@ static void kick(const mjModel* m, mjData* d, int reset) {
   if (reset) {
     mj_resetData(m, d);
     d->qpos[0] = uni(-1, 1); d->qpos[1] = uni(-1, 1); d->qpos[2] = uni(0.06, 0.25);
-    double q[4] = {uni(-1, 1), uni(-1, 1), uni(-1, 1), uni(-1, 1)};
+    mjtNum q[4] = {uni(-1, 1), uni(-1, 1), uni(-1, 1), uni(-1, 1)};
     mju_normalize4(q);
     for (int i=0; i < 4; i++) d->qpos[3+i] = q[i];
   }
