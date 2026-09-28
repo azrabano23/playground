@@ -51,6 +51,7 @@ h1{font:700 34px/1.05 var(--display);letter-spacing:-.01em;margin:0;text-wrap:ba
 .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin-top:4px}
 .meta .comp{font-family:var(--mono);color:var(--ink)}
 .tag{font:600 10px var(--body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:3px;padding:1px 6px;color:var(--muted)}
+.tag.warn{color:var(--warn);border-color:var(--warn)}
 .why{margin:8px 0 0;max-width:72ch}
 .alumni{font-size:13px;margin-top:6px;color:var(--muted)}
 .alumni a{color:var(--ink)}
@@ -139,7 +140,7 @@ function ticket(j){
       <div class="age ${h!=null&&h<48?"fresh":h!=null&&h<24*7?"warm":""}" title="posted ${esc(j.posted_at||"unknown")}">${ageLabel(h)}</div></div>
     <div style="min-width:0">
       <div class="top"><span class="co">${esc(j.company)}</span><span class="role">${esc(j.title)}</span>
-        ${j.kind?`<span class="tag">${esc(KIND[j.kind]||j.kind)}</span>`:""}${j.track?`<span class="tag">${esc(TRACKS[j.track]||j.track)}</span>`:""}</div>
+        ${j.kind?`<span class="tag">${esc(KIND[j.kind]||j.kind)}</span>`:""}${j.track?`<span class="tag">${esc(TRACKS[j.track]||j.track)}</span>`:""}${j.verified===false?`<span class="tag warn" title="${esc(j.verify_note||"Posting page could not be opened automatically")}">verify link</span>`:""}</div>
       <div class="meta"><span>${esc(j.location||"US")}</span><span class="comp">${esc(j.comp_text||"comp n/a")}</span>${j.equity?"<span>equity</span>":""}${j.source?`<span>via ${esc(j.source)}</span>`:""}</div>
       ${j.why?`<p class="why">${esc(j.why)}</p>`:""}
       ${alumni||alum?`<div class="alumni">Rutgers alumni: ${alumni||"none confirmed yet"}${alum?` · <a href="${esc(alum)}" target="_blank" rel="noopener">search LinkedIn</a>`:""}</div>`:""}

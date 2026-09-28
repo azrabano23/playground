@@ -125,8 +125,16 @@ Drop a candidate if any of these hold:
   put the clash in `why`.
 - Comp is known and below target (new grad total comp < $250k; intern < ~$55/hr), unless the
   company is a frontier lab or tier-1 quant firm where the door matters more than the number.
-- The posting is not verifiably open: an aggregator saying `active` plus a search hit counts;
-  a 404 or "no longer accepting" does not.
+- The posting is known to be closed (a 404, "no longer accepting", or aggregator `active: false`).
+
+**Unverified leads are kept, not dropped.** If a posting is listed as active by an aggregator or
+shows up in search but its page can't be opened (the proxy blocks most ATS hosts), keep it when
+fit ≥ 70 and set `verified: false` plus a short `verify_note` (what was and wasn't confirmed).
+The dashboard tags these "verify link" so Azra clicks through before applying. Tier-1 firms (HRT,
+Jump, Five Rings, Jane Street, frontier labs) are exactly the ones whose pages are blocked, so
+dropping them loses the best leads. Rows confirmed from the live page get `verified: true`.
+Always copy known eligibility clashes into `why` (e.g. DRW's intern program wants Dec 2027–Jun
+2028 grads).
 
 Score `fit` from 0 to 100: track match with her ranked goals (40), evidence her projects match
 the stated requirements (25), comp/equity against the $350–400k goal (15), freshness (10; ≤48h

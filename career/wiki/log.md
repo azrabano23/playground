@@ -6,3 +6,4 @@
 2026-09-28 21:30 | build | resume/base.typ master resume: 1 page, 97.5% fill, 21 links, all black
 2026-09-28 21:30 | radar | dashboard published; hourly routine created (see radar/AGENTS.md)
 2026-09-28 21:30 | radar | Exa connected: people search found verified Rutgers alumni (OpenAI, HRT, Jane Street, Anthropic) and 2 fresh postings; playbook updated to prefer Exa
+2026-09-28 22:50 | radar | first hourly run OK (2 kept of 22); evaluator now keeps fit>=70 unverified leads tagged 'verify link' instead of dropping them
