@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+# harness state: cache is reproducible, ledgers are committed per project on purpose
+.loopgraph/cache/
+artifacts/
+*.o
+*.elf
+a.out
