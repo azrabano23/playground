@@ -11,3 +11,4 @@ artifacts/
 *.o
 *.elf
 a.out
+myoedge/data/

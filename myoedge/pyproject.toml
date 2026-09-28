@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myoedge"
+version = "0.1.0"
+description = "EMG gesture control for low-cost prosthetic hands that survives taking the armband off and putting it back on, compiled to integer C for an 8-bit microcontroller."
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "loopgraph"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+myoedge = "myoedge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
