@@ -1,0 +1,66 @@
+From c7980d851dcba92a899c185c361165a6edb1e80e Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:26:04 +0000
+Subject: [PATCH] Skip holiday observances when there are no dates
+
+With pandas < 2.1, DatetimeIndex.map first passes the whole index to the
+mapper. For an empty index that calls the observance (e.g. XKRX
+alternative_holiday) with an empty DatetimeIndex instead of a Timestamp,
+which raises numpy's 'truth value of an empty array is ambiguous'
+DeprecationWarning. Return early when there are no dates to observe.
+
+Fixes #300
+---
+ exchange_calendars/pandas_extensions/holiday.py |  5 ++++-
+ tests/test_xkrx_calendar.py                     | 12 ++++++++++++
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/exchange_calendars/pandas_extensions/holiday.py b/exchange_calendars/pandas_extensions/holiday.py
+index 1cf16ba..4804005 100644
+--- a/exchange_calendars/pandas_extensions/holiday.py
++++ b/exchange_calendars/pandas_extensions/holiday.py
+@@ -103,7 +103,10 @@ class Holiday(PandasHoliday):
+         return dates
+ 
+     def _apply_observance(self, dates):
+-        if self.observance is not None:
++        # NOTE: with pandas < 2.1 `DatetimeIndex.map` first tries passing the
++        # whole index to the mapper, which for an empty index calls the
++        # observance with an empty DatetimeIndex rather than a Timestamp (#300).
++        if self.observance is not None and not dates.empty:
+             if not isinstance(self.observance, list):
+                 observances = [self.observance]
+             else:
+diff --git a/tests/test_xkrx_calendar.py b/tests/test_xkrx_calendar.py
+index 159b908..2c74428 100644
+--- a/tests/test_xkrx_calendar.py
++++ b/tests/test_xkrx_calendar.py
+@@ -1,9 +1,11 @@
+ from datetime import date
++import warnings
+ 
+ import pandas as pd
+ import pytest
+ 
+ from exchange_calendars.exchange_calendar_xkrx import XKRXExchangeCalendar
++from exchange_calendars.xkrx_holidays import LaborDay
+ from .test_exchange_calendar import ExchangeCalendarTestBase
+ from .test_utils import T
+ 
+@@ -142,3 +144,13 @@ class TestXKRXCalendar(ExchangeCalendarTestBase):
+     def test_feb_29_2022_in_lunar_calendar(self, default_calendar):
+         # This test asserts that the following does not throw an exception.
+         default_calendar.regular_holidays.holidays(date(2022, 3, 31), date(2022, 3, 31))
++
++    def test_observance_not_called_with_empty_index(self):
++        # A range that precedes a holiday's `start_date` leaves no reference
++        # dates. The observance should not then be called with an empty index
++        # in place of a Timestamp (#300).
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            dates = LaborDay.dates(T("2022-03-31"), T("2022-03-31"))
++        assert dates.empty
++        assert not w, [str(warning.message) for warning in w]
+-- 
+2.43.0
+
