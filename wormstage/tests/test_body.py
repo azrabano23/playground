@@ -36,7 +36,7 @@ def test_head_to_tail_wave_moves_head_first():
 
 
 def test_servo_limits():
-    s = Snake(n_links=4, servo_rate=2.0, joint_max=0.5)
+    s = Snake(n_links=4, servo_rate=2.0, joint_max=0.5, compliant=False)
     pose, phi = np.zeros(3), np.zeros(3)
     _, phi2 = s.step(pose, phi, np.full(3, 5.0), 0.01)
     assert np.allclose(phi2, 0.02)
