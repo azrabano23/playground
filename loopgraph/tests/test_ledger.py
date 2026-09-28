@@ -42,3 +42,11 @@ def test_load_claims(tmp_path):
     p.write_text(json.dumps([{"id": "a", "experiment": "e", "metric": "m", "value": 1.0}]))
     [c] = load_claims(p)
     assert c.select == "latest"
+
+
+def test_claim_can_pin_a_run_by_params(tmp_path):
+    L = Ledger(tmp_path / "l.jsonl")
+    record(L, "e", {"w": 8}, {"acc": 0.7})
+    record(L, "e", {"w": 16}, {"acc": 0.9})
+    (c, ok, got), = verify_claims(L, [Claim("x", "e", "acc", 0.7, params={"w": 8})])
+    assert ok and got == 0.7

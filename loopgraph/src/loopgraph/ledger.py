@@ -155,7 +155,8 @@ def record(ledger: Ledger, experiment: str, params: dict[str, Any],
 class Claim:
     """A number stated in documentation, bound to where it came from.
 
-    `select` picks the ledger entry: "latest" or "best:<metric>[:min]".
+    `select` picks the ledger entry: "latest" or "best:<metric>[:min]",
+    among entries whose params include every item of `params` (if given).
     """
 
     id: str
@@ -165,14 +166,23 @@ class Claim:
     tol: float = 0.0
     select: str = "latest"
     text: str = ""
+    params: dict | None = None
 
 
 def _pick(ledger: Ledger, c: Claim) -> Entry | None:
+    es = [e for e in ledger.entries(c.experiment)
+          if all(e.params.get(k) == v for k, v in (c.params or {}).items())]
+    if not es:
+        return None
     if c.select == "latest":
-        return ledger.latest(c.experiment)
+        return es[-1]
     if c.select.startswith("best:"):
         parts = c.select.split(":")
-        return ledger.best(c.experiment, parts[1], maximize=not (len(parts) > 2 and parts[2] == "min"))
+        es = [e for e in es if parts[1] in e.metrics and e.admitted]
+        if not es:
+            return None
+        key = lambda e: e.metrics[parts[1]]
+        return min(es, key=key) if len(parts) > 2 and parts[2] == "min" else max(es, key=key)
     raise ValueError(f"bad claim selector {c.select!r}")
 
 
