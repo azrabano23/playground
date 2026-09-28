@@ -115,39 +115,65 @@ int main(int argc, char** argv) {
                 all.size(), cases.size());
 
     // ---- accuracy ---------------------------------------------------------
-    std::printf("%-36s %6s %6s %6s %10s %10s %10s %9s %9s\n", "solver", "ok", "throw", "bad",
-                "median", "p99", "max", "err>1e-6", "err>1e-3");
+    // The attainable relative accuracy of any double-precision solver is
+    // about eps * cond, cond = price / (stdDev * vega). We split the cases
+    // into well-conditioned (cond <= 1e3) and ill-conditioned ones; for the
+    // latter only the error in units of eps * cond is meaningful.
     std::vector<std::vector<Outcome>> outcomes(solvers.size());
+    std::vector<int> thrown(solvers.size(), 0);
     for (size_t i = 0; i < solvers.size(); ++i) {
-        std::vector<double> errs;
-        int ok = 0, thrown = 0, bad = 0, big6 = 0, big3 = 0;
         for (const auto& c : cases) {
-            Outcome o = run(solvers[i], c);
-            outcomes[i].push_back(o);
-            if (!o.ok) {
-                try {
-                    double v = solvers[i].f(c);
-                    (void)v;
-                    ++bad; // returned NaN/inf
-                } catch (std::exception&) {
-                    ++thrown;
-                }
-                continue;
+            Outcome o;
+            try {
+                double v = solvers[i].f(c);
+                o = {std::isfinite(v), v};
+            } catch (std::exception&) {
+                o = {false, 0.0};
+                ++thrown[i];
             }
-            ++ok;
-            double e = std::fabs(o.value - c.ref) / c.ref;
-            errs.push_back(e);
-            if (e > 1e-6)
-                ++big6;
-            if (e > 1e-3)
-                ++big3;
+            outcomes[i].push_back(o);
         }
-        std::printf("%-36s %6d %6d %6d %10.2e %10.2e %10.2e %9d %9d\n", solvers[i].name.c_str(),
-                    ok, thrown, bad, percentile(errs, 0.5), percentile(errs, 0.99),
-                    errs.empty() ? NAN : *std::max_element(errs.begin(), errs.end()), big6, big3);
     }
+    auto report = [&](const char* title, const std::function<bool(const Case&)>& in) {
+        size_t n = 0;
+        for (const auto& c : cases)
+            n += in(c);
+        std::printf("%s: %zu cases\n", title, n);
+        std::printf("%-36s %6s %6s %10s %10s %10s %9s %9s %12s\n", "solver", "ok", "fail",
+                    "median", "p99", "max", "err>1e-9", "err>1e-6", "max/(eps*c)");
+        for (size_t i = 0; i < solvers.size(); ++i) {
+            std::vector<double> errs;
+            int ok = 0, fail = 0, big9 = 0, big6 = 0;
+            double worstNorm = 0;
+            for (size_t j = 0; j < cases.size(); ++j) {
+                if (!in(cases[j]))
+                    continue;
+                if (!outcomes[i][j].ok) {
+                    ++fail;
+                    continue;
+                }
+                ++ok;
+                double e = std::fabs(outcomes[i][j].value - cases[j].ref) / cases[j].ref;
+                errs.push_back(e);
+                big9 += e > 1e-9;
+                big6 += e > 1e-6;
+                worstNorm = std::max(worstNorm, e / (QL_EPSILON * cases[j].cond));
+            }
+            std::printf("%-36s %6d %6d %10.2e %10.2e %10.2e %9d %9d %12.3g\n",
+                        solvers[i].name.c_str(), ok, fail, percentile(errs, 0.5),
+                        percentile(errs, 0.99),
+                        errs.empty() ? NAN : *std::max_element(errs.begin(), errs.end()), big9,
+                        big6, worstNorm);
+        }
+        std::printf("\n");
+    };
+    report("all usable cases", [](const Case&) { return true; });
+    report("well-conditioned (cond <= 1e3)", [](const Case& c) { return c.cond <= 1e3; });
+    report("out-of-the-money options only",
+           [](const Case& c) { return (c.type == Option::Call) ? c.x <= 0 : c.x >= 0; });
+    report("ill-conditioned (cond > 1e3; only max/(eps*c) is meaningful)",
+           [](const Case& c) { return c.cond > 1e3; });
 
-    // accuracy on the subset where every solver returns a value
     std::vector<size_t> common;
     for (size_t j = 0; j < cases.size(); ++j) {
         bool all_ok = true;
@@ -156,40 +182,23 @@ int main(int argc, char** argv) {
         if (all_ok)
             common.push_back(j);
     }
-    std::printf("\ncommon subset (all solvers return a value): %zu cases\n", common.size());
-    std::printf("%-36s %10s %10s %10s\n", "solver", "median", "p99", "max");
-    for (size_t i = 0; i < solvers.size(); ++i) {
-        std::vector<double> errs;
-        for (size_t j : common)
-            errs.push_back(std::fabs(outcomes[i][j].value - cases[j].ref) / cases[j].ref);
-        std::printf("%-36s %10.2e %10.2e %10.2e\n", solvers[i].name.c_str(),
-                    percentile(errs, 0.5), percentile(errs, 0.99),
-                    *std::max_element(errs.begin(), errs.end()));
-    }
 
-    // error in units of the attainable accuracy eps * conditioning
     {
-        std::vector<double> ratio;
         double worst = 0;
         const Case* w = nullptr;
         for (size_t j = 0; j < cases.size(); ++j) {
             if (!outcomes[0][j].ok)
                 continue;
-            double e = std::fabs(outcomes[0][j].value - cases[j].ref) / cases[j].ref;
-            double r = e / (QL_EPSILON * cases[j].cond);
-            ratio.push_back(r);
+            double r = std::fabs(outcomes[0][j].value - cases[j].ref) / cases[j].ref /
+                       (QL_EPSILON * cases[j].cond);
             if (r > worst) {
                 worst = r;
                 w = &cases[j];
             }
         }
-        std::printf("\nLetsBeRational error / (eps * conditioning): median %.2f, p99 %.2f, max "
-                    "%.2f",
-                    percentile(ratio, 0.5), percentile(ratio, 0.99), worst);
         if (w)
-            std::printf(" (at %s x=%g s=%g)", w->type == Option::Call ? "call" : "put", w->x,
-                        w->s);
-        std::printf("\n");
+            std::printf("LetsBeRational worst error/(eps*cond) %.3g at %s x=%g s=%g cond=%.3g\n",
+                        worst, w->type == Option::Call ? "call" : "put", w->x, w->s, w->cond);
     }
 
     // ---- iterations (normalised level, as the public function calls it) ---
