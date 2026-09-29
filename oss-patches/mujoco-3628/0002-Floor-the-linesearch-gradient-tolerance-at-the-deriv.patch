@@ -1,0 +1,187 @@
+From e8f6be183961956cfb7b830f237bf79ded15fa66 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 00:02:56 +0000
+Subject: [PATCH 2/3] Floor the linesearch gradient tolerance at the
+ derivative's rounding noise.
+
+The linesearch accepts a point when |f'(alpha)| < tolerance*ls_tolerance
+(scaled). When that is below the rounding error of f'(alpha), a sum of terms
+much larger than the result, the sign of the derivative is noise and the
+bracketed search runs until ls_iterations is exhausted. This happens with
+tolerance=0, and in single precision with the default tolerance.
+
+Floor the tolerance at eps*sum|terms|, with the magnitudes of the terms of
+the derivative accumulated in PrimalPrepare. In double precision with the
+default tolerance the floor is inactive.
+---
+ doc/changelog.rst                 |  3 +++
+ src/engine/engine_solver.c        | 34 +++++++++++++++++++++++++-----
+ test/engine/engine_solver_test.cc | 35 +++++++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+), 5 deletions(-)
+
+diff --git a/doc/changelog.rst b/doc/changelog.rst
+index 2aa1378..5b714c1 100644
+--- a/doc/changelog.rst
++++ b/doc/changelog.rst
+@@ -28,6 +28,9 @@ General
+   contact crosses the elliptic cone boundary), and skips Newton candidates that fall outside the bracket. With elliptic
+   cones and a large :ref:`impratio<option-impratio>`, the linesearch could exhaust
+   :ref:`ls_iterations<option-ls_iterations>` without improvement, ending the solve at a non-minimizer (:issue:`3628`).
++- The linesearch gradient tolerance is now floored at the rounding noise of the linesearch derivative. With
++  :ref:`tolerance<option-tolerance>` set to 0, or in single precision, the linesearch no longer exhausts
++  :ref:`ls_iterations<option-ls_iterations>` chasing noise.
+ 
+ Version 3.14.0 (September 22, 2026)
+ -----------------------------------
+diff --git a/src/engine/engine_solver.c b/src/engine/engine_solver.c
+index 7b6c18c..c0d183c 100644
+--- a/src/engine/engine_solver.c
++++ b/src/engine/engine_solver.c
+@@ -14,6 +14,7 @@
+ 
+ #include "engine/engine_solver.h"
+ 
++#include <float.h>
+ #include <stddef.h>
+ #include <stdint.h>
+ #include <string.h>
+@@ -1116,6 +1117,7 @@ typedef struct {
+   int LSiter;             // number of linesearch iterations
+   int LSresult;           // linesearch result
+   mjtNum LSslope;         // linesearch slope at solution
++  mjtNum LSnoise[2];      // derivative terms magnitude at alpha: LSnoise[0] + |alpha|*LSnoise[1]
+ } mjPrimalContext;
+ 
+ 
+@@ -1568,9 +1570,14 @@ static void PrimalPrepare(mjPrimalContext* ctx) {
+ 
+   // Gauss: alpha^2*0.5*v'*M*v + alpha*v'*(Ma-qfrc_smooth) + 0.5*(a-qacc_smooth)'*(Ma-qfrc_smooth)
+   //  quadGauss[0] already computed in PrimalUpdateConstraint
+-  ctx->quadGauss[1] = mju_dot(v, ctx->Ma, nv) - mju_dot(ctx->qfrc_smooth, v, nv);
++  mjtNum vMa = mju_dot(v, ctx->Ma, nv), vqfrc = mju_dot(ctx->qfrc_smooth, v, nv);
++  ctx->quadGauss[1] = vMa - vqfrc;
+   ctx->quadGauss[2] = 0.5*mju_dot(v, ctx->Mv, nv);
+ 
++  // magnitude of the terms summed into the linesearch derivative, bounds its rounding error
++  ctx->LSnoise[0] = mju_abs(vMa) + mju_abs(vqfrc);
++  ctx->LSnoise[1] = 2*ctx->quadGauss[2];
++
+   // process constraints
+   for (int i=0; i < nefc; i++) {
+     // pointers to numeric data
+@@ -1633,6 +1640,9 @@ static void PrimalPrepare(mjPrimalContext* ctx) {
+     // apply scaling
+     quad[0] *= 0.5;
+     quad[2] *= 0.5;
++
++    ctx->LSnoise[0] += mju_abs(quad[1]);
++    ctx->LSnoise[1] += 2*quad[2];
+   }
+ }
+ 
+@@ -2014,6 +2024,20 @@ static int PrimalKink(const mjPrimalContext* ctx, mjtNum lo, mjtNum hi, mjtNum t
+ }
+ 
+ 
++// machine epsilon of mjtNum
++#ifdef mjUSESINGLE
++  #define mjLS_EPS FLT_EPSILON
++#else
++  #define mjLS_EPS DBL_EPSILON
++#endif
++
++// gradient tolerance at alpha, floored at the rounding noise of the derivative: below it the
++// sign of the derivative is not resolved and further bracketing only chases noise
++static mjtNum LStol(const mjPrimalContext* ctx, mjtNum gtol, mjtNum alpha) {
++  return mju_max(gtol, mjLS_EPS*(ctx->LSnoise[0] + mju_abs(alpha)*ctx->LSnoise[1]));
++}
++
++
+ // update bracket point given 3 candidate points
+ static int updateBracket(mjPrimalContext* ctx, mjPrimalPnt* p, const mjPrimalPnt candidates[3],
+                          mjPrimalPnt* pnext, mjtNum other) {
+@@ -2105,7 +2129,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+   PrimalEval(ctx, &p1);
+ 
+   // check for initial convergence
+-  if (mju_abs(p1.deriv[0]) < gtol && (p1.alpha == 0 || p1.cost < 0)) {
++  if (mju_abs(p1.deriv[0]) < LStol(ctx, gtol, p1.alpha) && (p1.alpha == 0 || p1.cost < 0)) {
+     if (p1.alpha == 0) {
+       ctx->LSresult = 2;  // no improvement, initial convergence
+     } else {
+@@ -2156,7 +2180,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+   // one-sided search
+   p2 = p0;
+   int p2update = 1;
+-  while (p1.deriv[0]*dir <= -gtol && ctx->LSiter < ls_iterations) {
++  while (p1.deriv[0]*dir <= -LStol(ctx, gtol, p1.alpha) && ctx->LSiter < ls_iterations) {
+     // save current
+     p2 = p1;
+     p2update = 1;
+@@ -2166,7 +2190,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     PrimalEval(ctx, &p1);
+ 
+     // check for convergence
+-    if (mju_abs(p1.deriv[0]) < gtol && p1.cost < 0) {
++    if (mju_abs(p1.deriv[0]) < LStol(ctx, gtol, p1.alpha) && p1.cost < 0) {
+       ctx->LSslope = mju_abs(p1.deriv[0])*slopescl;
+       *improvement = -p1.cost;
+       return p1.alpha;                          // SUCCESS
+@@ -2211,7 +2235,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     mjtNum bestcost = 0;
+     int bestind = -1;
+     for (int i=0; i < 3; i++) {
+-      if (mju_abs(candidates[i].deriv[0]) < gtol &&
++      if (mju_abs(candidates[i].deriv[0]) < LStol(ctx, gtol, candidates[i].alpha) &&
+           (bestind == -1 || candidates[i].cost < bestcost)) {
+         bestcost = candidates[i].cost;
+         bestind = i;
+diff --git a/test/engine/engine_solver_test.cc b/test/engine/engine_solver_test.cc
+index ede0d32..2554fc9 100644
+--- a/test/engine/engine_solver_test.cc
++++ b/test/engine/engine_solver_test.cc
+@@ -827,6 +827,41 @@ TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
+   }
+ }
+ 
++// With tolerance=0 (or a tolerance below what the precision resolves) the
++// linesearch cannot meet its gradient tolerance: it used to exhaust
++// ls_iterations at nearly every iteration, chasing rounding noise. The
++// tolerance is floored at the rounding noise of the linesearch derivative.
++TEST_F(SolverTest, LineSearchStopsAtRoundingNoise) {
++  const std::string xml_path = GetTestDataFilePath(kHumanoidPath);
++  char error[1024];
++  MjModelPtr model(mj_loadXML(xml_path.c_str(), nullptr, error, sizeof(error)));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  model->opt.solver = mjSOL_NEWTON;
++  model->opt.tolerance = 0;
++
++  for (mjtCone cone : {mjCONE_PYRAMIDAL, mjCONE_ELLIPTIC}) {
++    model->opt.cone = cone;
++    MjDataPtr data = MakeData(model);
++    mj_resetDataKeyframe(model.get(), data.get(), 0);
++    int nsearch = 0, nexhausted = 0;
++    for (int step = 0; step < 50; step++) {
++      mj_step(model.get(), data.get());
++      int nisland = max(1, data->nisland);
++      for (int island = 0; island < std::min(nisland, mjNISLAND); island++) {
++        int niter = std::min(data->solver_niter[island], mjNSOLVER);
++        for (int i = 0; i < niter; i++) {
++          const mjSolverStat& stat = data->solver[island * mjNSOLVER + i];
++          nsearch++;
++          nexhausted += stat.neval >= model->opt.ls_iterations;
++        }
++      }
++    }
++    EXPECT_GT(nsearch, 0);
++    EXPECT_EQ(nexhausted, 0)
++        << "cone: " << (cone == mjCONE_ELLIPTIC ? "elliptic" : "pyramidal");
++  }
++}
++
+ // A chain of thin capsules whose tip is connected to a slider: the connect
+ // fills H = M + J'*D*J, and once the chain sags, the twist pivots of the
+ // reverse factorization (the capsules' tiny axial inertia) are five orders of
+-- 
+2.43.0
+

@@ -1,0 +1,143 @@
+# bench40k.c: 40,000 solves with contact per configuration; args: cone impratio ls_iterations
+######## base-double: elliptic 10 20
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=8B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 478  (max 708)
+  |qacc-ref|>1e-3: 657   of which restart gives 0 iterations (false fixed point): 590
+  line searches: 129648  mean evals 6.15  max evals 22  exhausted(neval>=ls) 5208  (recorded with zero improvement: 0)
+  mean newton iters 3.241  mean mj_forward time 2.90 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-double: elliptic 10 20
+[warning] Linesearch used all 20 ls_iterations, the constraint solution may be inaccurate. Increase ls_iterations. Time = 0.3075.
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=8B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 2.36e-07)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 129905  mean evals 5.29  max evals 22  exhausted(neval>=ls) 334  (recorded with zero improvement: 0)
+  mean newton iters 3.248  mean mj_forward time 2.70 us
+  warnings counted in test mjData: 333 (first messages printed: 1)
+######## base-single: elliptic 10 20
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=4B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 20  (max 148)
+  |qacc-ref|>1e-3: 81   of which restart gives 0 iterations (false fixed point): 20
+  line searches: 133261  mean evals 11.67  max evals 22  exhausted(neval>=ls) 29498  (recorded with zero improvement: 0)
+  mean newton iters 3.332  mean mj_forward time 2.62 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-single: elliptic 10 20
+[warning] Linesearch used all 20 ls_iterations, the constraint solution may be inaccurate. Increase ls_iterations. Time = 0.1725.
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=4B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0.000671)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 133543  mean evals 4.40  max evals 22  exhausted(neval>=ls) 131  (recorded with zero improvement: 0)
+  mean newton iters 3.339  mean mj_forward time 2.98 us
+  warnings counted in test mjData: 130 (first messages printed: 1)
+######## base-double: elliptic 10 50
+cone=elliptic impratio=10 ls_iterations=50 mjtNum=8B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 129905  mean evals 6.13  max evals 34  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 3.248  mean mj_forward time 2.66 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-double: elliptic 10 50
+cone=elliptic impratio=10 ls_iterations=50 mjtNum=8B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 129905  mean evals 5.29  max evals 28  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 3.248  mean mj_forward time 2.60 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-single: elliptic 10 50
+cone=elliptic impratio=10 ls_iterations=50 mjtNum=4B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0.00226)
+  |qacc-ref|>1e-3: 26   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 133081  mean evals 15.51  max evals 51  exhausted(neval>=ls) 13538  (recorded with zero improvement: 0)
+  mean newton iters 3.327  mean mj_forward time 3.23 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-single: elliptic 10 50
+cone=elliptic impratio=10 ls_iterations=50 mjtNum=4B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 133543  mean evals 4.40  max evals 28  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 3.339  mean mj_forward time 2.71 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-double: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=8B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 114186  mean evals 4.18  max evals 20  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.855  mean mj_forward time 2.70 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-double: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=8B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 114186  mean evals 4.17  max evals 14  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.855  mean mj_forward time 2.39 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-single: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=4B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0.000977)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 116829  mean evals 14.38  max evals 51  exhausted(neval>=ls) 14201  (recorded with zero improvement: 0)
+  mean newton iters 2.921  mean mj_forward time 2.67 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-single: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=4B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 116937  mean evals 3.60  max evals 19  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.923  mean mj_forward time 2.48 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-double: pyramidal 10 20
+cone=pyramidal impratio=10 ls_iterations=20 mjtNum=8B steps=171135 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 107495  mean evals 3.45  max evals 11  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.687  mean mj_forward time 1.93 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-double: pyramidal 10 20
+cone=pyramidal impratio=10 ls_iterations=20 mjtNum=8B steps=171135 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 107495  mean evals 3.45  max evals 11  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.687  mean mj_forward time 2.06 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-single: pyramidal 10 20
+cone=pyramidal impratio=10 ls_iterations=20 mjtNum=4B steps=171135 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 112297  mean evals 4.14  max evals 19  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.807  mean mj_forward time 1.95 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-single: pyramidal 10 20
+cone=pyramidal impratio=10 ls_iterations=20 mjtNum=4B steps=171135 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 112249  mean evals 3.40  max evals 11  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.806  mean mj_forward time 2.02 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-double: pyramidal 1 50
+cone=pyramidal impratio=1 ls_iterations=50 mjtNum=8B steps=167416 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 86323  mean evals 3.13  max evals 10  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.158  mean mj_forward time 1.87 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-double: pyramidal 1 50
+cone=pyramidal impratio=1 ls_iterations=50 mjtNum=8B steps=167416 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 86323  mean evals 3.13  max evals 10  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.158  mean mj_forward time 1.79 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## base-single: pyramidal 1 50
+cone=pyramidal impratio=1 ls_iterations=50 mjtNum=4B steps=167416 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 89221  mean evals 3.76  max evals 17  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.231  mean mj_forward time 1.98 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## fix-single: pyramidal 1 50
+cone=pyramidal impratio=1 ls_iterations=50 mjtNum=4B steps=167416 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 89263  mean evals 3.10  max evals 10  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.232  mean mj_forward time 2.00 us
+  warnings counted in test mjData: 0 (first messages printed: 0)

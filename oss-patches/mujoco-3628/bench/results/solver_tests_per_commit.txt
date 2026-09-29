@@ -1,0 +1,58 @@
+== commit 23d6c06, build
+ 1/12 Test #742: SolverTest.IslandsEquivalent ...........................   Passed    0.27 sec
+ 2/12 Test #743: SolverTest.IslandsEquivalentForward ....................   Passed    0.33 sec
+ 3/12 Test #744: SolverTest.SolversEquivalent ...........................   Passed    0.40 sec
+ 4/12 Test #745: SolverTest.EllipticLineSearchPrecisionDiagnostics ......   Passed    0.01 sec
+ 5/12 Test #746: SolverTest.NewtonDecrementTermination ..................   Passed    0.21 sec
+ 6/12 Test #747: SolverTest.WarmstartZeroIterations .....................   Passed    0.02 sec
+ 7/12 Test #748: SolverTest.WarmstartZeroIterationsIslands ..............   Passed    0.01 sec
+ 8/12 Test #749: SolverTest.ZeroToleranceDisablesTermination ............   Passed    0.01 sec
+ 9/12 Test #750: SolverTest.EllipticConeHessianSurvivesFrictionRatios ...   Passed    0.02 sec
+10/12 Test #751: SolverTest.ConeFoldEquivalent ..........................   Passed    2.88 sec
+11/12 Test #752: SolverTest.EllipticLineSearchCrossesConeBoundary .......   Passed    0.00 sec
+12/12 Test #753: SolverTest.NewtonHessianSurvivesLostPivot ..............   Passed    0.41 sec
+100% tests passed, 0 tests failed out of 12
+== commit 23d6c06, build-single
+ 1/12 Test #742: SolverTest.IslandsEquivalent ...........................   Passed    0.31 sec
+ 2/12 Test #743: SolverTest.IslandsEquivalentForward ....................   Passed    0.17 sec
+ 3/12 Test #744: SolverTest.SolversEquivalent ...........................   Passed    0.23 sec
+ 4/12 Test #745: SolverTest.EllipticLineSearchPrecisionDiagnostics ......   Passed    0.01 sec
+ 5/12 Test #746: SolverTest.NewtonDecrementTermination ..................   Passed    0.17 sec
+ 6/12 Test #747: SolverTest.WarmstartZeroIterations .....................   Passed    0.03 sec
+ 7/12 Test #748: SolverTest.WarmstartZeroIterationsIslands ..............   Passed    0.01 sec
+ 8/12 Test #749: SolverTest.ZeroToleranceDisablesTermination ............   Passed    0.01 sec
+ 9/12 Test #750: SolverTest.EllipticConeHessianSurvivesFrictionRatios ...   Passed    0.01 sec
+10/12 Test #751: SolverTest.ConeFoldEquivalent ..........................   Passed    2.94 sec
+11/12 Test #752: SolverTest.EllipticLineSearchCrossesConeBoundary .......   Passed    0.01 sec
+12/12 Test #753: SolverTest.NewtonHessianSurvivesLostPivot ..............   Passed    0.50 sec
+100% tests passed, 0 tests failed out of 12
+== commit a12c351, build
+ 1/13 Test #742: SolverTest.IslandsEquivalent ...........................   Passed    0.38 sec
+ 2/13 Test #743: SolverTest.IslandsEquivalentForward ....................   Passed    0.33 sec
+ 3/13 Test #744: SolverTest.SolversEquivalent ...........................   Passed    0.35 sec
+ 4/13 Test #745: SolverTest.EllipticLineSearchPrecisionDiagnostics ......   Passed    0.00 sec
+ 5/13 Test #746: SolverTest.NewtonDecrementTermination ..................   Passed    0.13 sec
+ 6/13 Test #747: SolverTest.WarmstartZeroIterations .....................   Passed    0.02 sec
+ 7/13 Test #748: SolverTest.WarmstartZeroIterationsIslands ..............   Passed    0.01 sec
+ 8/13 Test #749: SolverTest.ZeroToleranceDisablesTermination ............   Passed    0.01 sec
+ 9/13 Test #750: SolverTest.EllipticConeHessianSurvivesFrictionRatios ...   Passed    0.01 sec
+10/13 Test #751: SolverTest.ConeFoldEquivalent ..........................   Passed    2.79 sec
+11/13 Test #752: SolverTest.EllipticLineSearchCrossesConeBoundary .......   Passed    0.01 sec
+12/13 Test #753: SolverTest.LineSearchStopsAtRoundingNoise ..............   Passed    0.04 sec
+13/13 Test #754: SolverTest.NewtonHessianSurvivesLostPivot ..............   Passed    0.40 sec
+100% tests passed, 0 tests failed out of 13
+== commit a12c351, build-single
+ 1/13 Test #742: SolverTest.IslandsEquivalent ...........................   Passed    0.48 sec
+ 2/13 Test #743: SolverTest.IslandsEquivalentForward ....................   Passed    0.32 sec
+ 3/13 Test #744: SolverTest.SolversEquivalent ...........................   Passed    0.16 sec
+ 4/13 Test #745: SolverTest.EllipticLineSearchPrecisionDiagnostics ......   Passed    0.01 sec
+ 5/13 Test #746: SolverTest.NewtonDecrementTermination ..................   Passed    0.13 sec
+ 6/13 Test #747: SolverTest.WarmstartZeroIterations .....................   Passed    0.03 sec
+ 7/13 Test #748: SolverTest.WarmstartZeroIterationsIslands ..............   Passed    0.01 sec
+ 8/13 Test #749: SolverTest.ZeroToleranceDisablesTermination ............   Passed    0.01 sec
+ 9/13 Test #750: SolverTest.EllipticConeHessianSurvivesFrictionRatios ...   Passed    0.01 sec
+10/13 Test #751: SolverTest.ConeFoldEquivalent ..........................   Passed    2.48 sec
+11/13 Test #752: SolverTest.EllipticLineSearchCrossesConeBoundary .......   Passed    0.01 sec
+12/13 Test #753: SolverTest.LineSearchStopsAtRoundingNoise ..............   Passed    0.03 sec
+13/13 Test #754: SolverTest.NewtonHessianSurvivesLostPivot ..............   Passed    0.48 sec
+100% tests passed, 0 tests failed out of 13

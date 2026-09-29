@@ -1,0 +1,255 @@
+From 23d6c06a9cbb7a6fcd77655292e1cf2750cc6ea7 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 00:02:49 +0000
+Subject: [PATCH 1/3] Bracket the linesearch at constraint zone boundaries.
+
+The linesearch cost is piecewise smooth: its curvature jumps where a
+constraint changes zone, e.g. where an elliptic contact crosses the cone
+boundary, by up to a factor of about impratio. Newton steps from the bracket
+ends use the curvature on their own side of such a boundary and overshoot
+across it, so the bracketed search degenerated to bisection at three
+evaluations per halving. With elliptic cones, impratio=10 and
+ls_iterations=20 it could exhaust its budget without improvement and end the
+solve at a non-minimizer, a fixed point of restarting from its own qacc
+(#3628).
+
+In the bracketed phase, evaluate at the zone boundary nearest to the
+bracket midpoint, when the bracket contains one, instead of at the midpoint.
+Boundaries are computed in closed form per constraint: the zero crossing of
+inequalities, the friction loss bounds, and the roots of the two elliptic
+cone boundary quadratics. Also skip evaluating Newton candidates that fall
+outside the bracket: the derivative is monotone, so they cannot improve on
+the bracket ends.
+---
+ doc/changelog.rst                 |   4 ++
+ src/engine/engine_solver.c        | 103 ++++++++++++++++++++++++++++--
+ test/engine/engine_solver_test.cc |  62 ++++++++++++++++++
+ 3 files changed, 162 insertions(+), 7 deletions(-)
+
+diff --git a/doc/changelog.rst b/doc/changelog.rst
+index a055dde..2aa1378 100644
+--- a/doc/changelog.rst
++++ b/doc/changelog.rst
+@@ -24,6 +24,10 @@ General
+ - Flex bending and stretching now include the motion and reaction forces of articulated vertex attachments. The discrete
+   integrator supports these attachments with the CG solver; fixed and independent XYZ-slide attachments retain their
+   optimized assembly. Elastic flexes attached to mocap bodies produce a compiler error.
++- The CG and Newton linesearch now brackets at the constraint zone boundary nearest the bracket midpoint (e.g. where a
++  contact crosses the elliptic cone boundary), and skips Newton candidates that fall outside the bracket. With elliptic
++  cones and a large :ref:`impratio<option-impratio>`, the linesearch could exhaust
++  :ref:`ls_iterations<option-ls_iterations>` without improvement, ending the solve at a non-minimizer (:issue:`3628`).
+ 
+ Version 3.14.0 (September 22, 2026)
+ -----------------------------------
+diff --git a/src/engine/engine_solver.c b/src/engine/engine_solver.c
+index 274f90f..7b6c18c 100644
+--- a/src/engine/engine_solver.c
++++ b/src/engine/engine_solver.c
+@@ -1936,9 +1936,87 @@ static void PrimalEval(mjPrimalContext* ctx, mjPrimalPnt* p) {
+ }
+ 
+ 
++// roots of a*x^2 + 2*b*x + c in (lo, hi) that satisfy s0 + s1*x >= 0: keep the nearest to target
++static void kinkRoots(mjtNum a, mjtNum b, mjtNum c, mjtNum s0, mjtNum s1,
++                      mjtNum lo, mjtNum hi, mjtNum target, mjtNum* best) {
++  mjtNum root[2];
++  int nroot = 0;
++
++  // linear
++  if (mju_abs(a) < mjMINVAL) {
++    if (mju_abs(b) >= mjMINVAL) {
++      root[nroot++] = -c / (2*b);
++    }
++  }
++
++  // quadratic: numerically stable form
++  else {
++    mjtNum disc = b*b - a*c;
++    if (disc >= 0) {
++      mjtNum q = -(b + (b < 0 ? -mju_sqrt(disc) : mju_sqrt(disc)));
++      root[nroot++] = q / a;
++      if (mju_abs(q) >= mjMINVAL) {
++        root[nroot++] = c / q;
++      }
++    }
++  }
++
++  for (int k=0; k < nroot; k++) {
++    mjtNum x = root[k];
++    if (lo < x && x < hi && s0 + s1*x >= 0 && mju_abs(x - target) < mju_abs(*best - target)) {
++      *best = x;
++    }
++  }
++}
++
++
++// the linesearch cost is piecewise smooth: its curvature jumps where a constraint changes zone
++// (inequality active/inactive, friction loss quadratic/linear, elliptic cone top/middle/bottom);
++// find the zone boundary in (lo, hi) nearest to target, return 0 if there is none
++static int PrimalKink(const mjPrimalContext* ctx, mjtNum lo, mjtNum hi, mjtNum target,
++                      mjtNum* kink) {
++  int ne = ctx->ne, nf = ctx->nf, nefc = ctx->nefc;
++  mjtNum best = mjMAXVAL;
++
++  for (int i=ne; i < nefc; i++) {
++    mjtNum start = ctx->Jaref[i], dir = ctx->Jv[i];
++
++    // friction loss: start + alpha*dir = -Rf or +Rf
++    if (i < ne + nf) {
++      mjtNum Rf = ctx->efc_R[i]*ctx->efc_frictionloss[i];
++      kinkRoots(0, 0.5*dir, start - Rf, 0, 0, lo, hi, target, &best);
++      kinkRoots(0, 0.5*dir, start + Rf, 0, 0, lo, hi, target, &best);
++    }
++
++    // elliptic cone, with N = U0 + alpha*V0 and T^2 = UU + 2*alpha*UV + alpha^2*VV:
++    //   top/middle: N = mu*T, N >= 0;  middle/bottom: mu*N = -T, N <= 0
++    else if (ctx->efc_type[i] == mjCNSTR_CONTACT_ELLIPTIC) {
++      const mjtNum* quad = ctx->quad + 3*i;
++      const mjContact* con = ctx->contact + ctx->efc_id[i];
++      mjtNum U0 = quad[3], V0 = quad[4], UU = quad[5], UV = quad[6], VV = quad[7];
++      mjtNum mu2 = con->mu*con->mu;
++      kinkRoots(V0*V0 - mu2*VV, U0*V0 - mu2*UV, U0*U0 - mu2*UU, U0, V0, lo, hi, target, &best);
++      kinkRoots(mu2*V0*V0 - VV, mu2*U0*V0 - UV, mu2*U0*U0 - UU, -U0, -V0, lo, hi, target, &best);
++      i += con->dim - 1;
++    }
++
++    // limit, pyramidal or frictionless contact: start + alpha*dir = 0
++    else {
++      kinkRoots(0, 0.5*dir, start, 0, 0, lo, hi, target, &best);
++    }
++  }
++
++  if (best == mjMAXVAL) {
++    return 0;
++  }
++  *kink = best;
++  return 1;
++}
++
++
+ // update bracket point given 3 candidate points
+-static int updateBracket(mjPrimalContext* ctx,
+-                         mjPrimalPnt* p, const mjPrimalPnt candidates[3], mjPrimalPnt* pnext) {
++static int updateBracket(mjPrimalContext* ctx, mjPrimalPnt* p, const mjPrimalPnt candidates[3],
++                         mjPrimalPnt* pnext, mjtNum other) {
+   int flag = 0;
+   for (int i=0; i < 3; i++) {
+     // negative deriv
+@@ -1959,7 +2037,14 @@ static int updateBracket(mjPrimalContext* ctx,
+   // compute next point if updated
+   if (flag) {
+     pnext->alpha = p->alpha - p->deriv[0]/p->deriv[1];
+-    PrimalEval(ctx, pnext);
++
++    // the derivative is monotone: a Newton point outside the bracket cannot improve on its ends,
++    // skip the evaluation (e.g. when the step crosses a zone boundary with a curvature jump)
++    if (mju_min(p->alpha, other) < pnext->alpha && pnext->alpha < mju_max(p->alpha, other)) {
++      PrimalEval(ctx, pnext);
++    } else {
++      *pnext = *p;
++    }
+   }
+ 
+   return flag;
+@@ -2111,8 +2196,12 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+ 
+   // bracketed search
+   while (ctx->LSiter < ls_iterations) {
+-    // evaluate at midpoint
+-    pmid.alpha = 0.5*(p1.alpha + p2.alpha);
++    // evaluate at the zone boundary nearest to the midpoint, or at the midpoint if the bracket
++    // contains none: Newton steps from the bracket ends use the curvature on their side of a
++    // boundary, and stall when it jumps (e.g. elliptic cones with large impratio)
++    mjtNum lo = mju_min(p1.alpha, p2.alpha), hi = mju_max(p1.alpha, p2.alpha);
++    pmid.alpha = 0.5*(lo + hi);
++    PrimalKink(ctx, lo, hi, pmid.alpha, &pmid.alpha);
+     PrimalEval(ctx, &pmid);
+ 
+     // make list of candidates
+@@ -2135,8 +2224,8 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     }
+ 
+     // update brackets
+-    int b1 = updateBracket(ctx, &p1, candidates, &p1next);
+-    int b2 = updateBracket(ctx, &p2, candidates, &p2next);
++    int b1 = updateBracket(ctx, &p1, candidates, &p1next, p2.alpha);
++    int b2 = updateBracket(ctx, &p2, candidates, &p2next, p1.alpha);
+ 
+     // no update possible: numerical accuracy reached, use midpoint
+     if (!b1 && !b2) {
+diff --git a/test/engine/engine_solver_test.cc b/test/engine/engine_solver_test.cc
+index 5792dfd..ede0d32 100644
+--- a/test/engine/engine_solver_test.cc
++++ b/test/engine/engine_solver_test.cc
+@@ -765,6 +765,68 @@ TEST_F(SolverTest, ConeFoldEquivalent) {
+   }
+ }
+ 
++// With elliptic cones and a large impratio, the curvature of the linesearch
++// cost jumps by orders of magnitude where a contact crosses the cone boundary.
++// Newton steps from the bracket ends overshoot across the jump, and this state
++// from GitHub issue #3628 needed 23 evaluations by bisection: with
++// ls_iterations=20 the search returned no improvement and the solver stopped at
++// a non-minimizer, a fixed point of restarting from its own qacc.
++TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
++  constexpr char xml[] = R"(
++  <mujoco>
++    <option timestep="0.0025" cone="elliptic" impratio="10"
++            integrator="implicitfast" iterations="100" tolerance="1e-8"/>
++    <worldbody>
++      <geom type="plane" size="5 5 .1"/>
++      <body pos="0 0 .3">
++        <freejoint/>
++        <geom type="box" size=".2 .1 .05" mass="5"/>
++      </body>
++    </worldbody>
++  </mujoco>
++  )";
++  const mjtNum qpos[7] = {-0.38228398123211904, -1.5617372196006747,
++                          0.14420735808017446,  -0.3039178177313174,
++                          0.6782960782869877,   -0.6545711847046525,
++                          -0.1381483058176044};
++  const mjtNum qvel[6] = {-2.5320433011146646, 0.4435273997725518,
++                          -3.833483970428372,  20.58784610148961,
++                          -4.891237201965733,  -1.521169201653485};
++  const mjtNum qacc_warmstart[6] = {196.2178511861834,  185.09984762860262,
++                                    456.16231234940415, -2622.9781161564592,
++                                    1990.857671015227,  -729.4643685817738};
++
++  char error[1024];
++  MjModelPtr model = LoadModelFromString(xml, error, sizeof(error));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  MjDataPtr data = MakeData(model);
++
++  auto solve = [&](int ls_iterations) {
++    model->opt.ls_iterations = ls_iterations;
++    mj_resetData(model.get(), data.get());
++    mju_copy(data->qpos, qpos, 7);
++    mju_copy(data->qvel, qvel, 6);
++    mju_copy(data->qacc_warmstart, qacc_warmstart, 6);
++    mj_forward(model.get(), data.get());
++    return std::vector<mjtNum>(data->qacc, data->qacc + model->nv);
++  };
++
++  std::vector<mjtNum> reference = solve(200);
++  std::vector<mjtNum> qacc = solve(20);
++  ASSERT_EQ(data->ncon, 1);
++
++  // every linesearch converges within its budget
++  int niter = std::min(data->solver_niter[0], mjNSOLVER);
++  for (int i = 0; i < niter; i++) {
++    EXPECT_LT(data->solver[i].neval, 20) << "iteration " << i;
++  }
++
++  // the solution matches the one found with a large linesearch budget
++  for (int i = 0; i < model->nv; i++) {
++    EXPECT_THAT(qacc[i], MjNear(reference[i], 1e-6, 1e-1)) << "dof " << i;
++  }
++}
++
+ // A chain of thin capsules whose tip is connected to a slider: the connect
+ // fills H = M + J'*D*J, and once the chain sags, the twist pivots of the
+ // reverse factorization (the capsules' tiny axial inertia) are five orders of
+-- 
+2.43.0
+

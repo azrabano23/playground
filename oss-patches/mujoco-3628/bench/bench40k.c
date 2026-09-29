@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
 
   long ncontact = 0, ndev1 = 0, nunconv = 0, nfixed = 0, niter_sum = 0, neval_sum = 0;
   int neval_max = 0; double maxdev = 0, tsolve = 0;
-  long nls_exhaust = 0;
+  long nls_exhaust = 0, nls_exhaust0 = 0;
   kick(m, d, 1);
   long nstep = 0;
   for (int s=0; ncontact < nsolve; s++) {
@@ -97,6 +97,7 @@ int main(int argc, char** argv) {
         if (t->solver[i].neval > neval_max) neval_max = t->solver[i].neval;
         if (t->solver[i].neval >= ls) {
           nls_exhaust++;
+          if (t->solver[i].improvement == 0) nls_exhaust0++;
           if (getenv("BENCH_TRACE") && nls_exhaust == atoi(getenv("BENCH_TRACE"))) {
             setenv("MJ_LSTRACE", "1", 1);
             mj_setState(m, t, state, mjSTATE_FULLPHYSICS | mjSTATE_WARMSTART);
@@ -124,10 +125,14 @@ int main(int argc, char** argv) {
   printf("  |qacc-ref|>1: %ld  (max %.3g)\n", ndev1, maxdev);
   printf("  |qacc-ref|>1e-3: %ld   of which restart gives 0 iterations (false fixed point): %ld\n",
          nunconv, nfixed);
-  printf("  line searches: %ld  mean evals %.2f  max evals %d  exhausted(neval>=ls) %ld\n",
-         niter_sum, niter_sum ? (double)neval_sum/niter_sum : 0.0, neval_max, nls_exhaust);
+  printf("  line searches: %ld  mean evals %.2f  max evals %d  exhausted(neval>=ls) %ld"
+         "  (recorded with zero improvement: %ld)\n",
+         niter_sum, niter_sum ? (double)neval_sum/niter_sum : 0.0, neval_max, nls_exhaust,
+         nls_exhaust0);
   printf("  mean newton iters %.3f  mean mj_forward time %.2f us\n",
          ncontact ? (double)niter_sum/ncontact : 0.0, 1e6*tsolve/nstep);
-  printf("  warnings printed: %d\n", nwarn_seen);
+  int nwarn = 0;
+  for (int i=0; i < mjNWARNING; i++) nwarn += t->warning[i].number;
+  printf("  warnings counted in test mjData: %d (first messages printed: %d)\n", nwarn, nwarn_seen);
   return 0;
 }

@@ -1,0 +1,14 @@
+Step time over 15 interleaved rounds (base, fix alternating). Shared, loaded 4-core VM: timings are noisy; LS statistics are deterministic.
+prec   model                                  cone      imp | base min  fix min | paired fix/base median |  iters/step b/f | LS evals mean b/f | max b/f | exhausted b/f
+double model/humanoid/22_humanoids.xml        elliptic   10 |    913.0    967.0 |                  0.981 |   99.64/99.64   |     5.76/5.28     |  29/23  | 0/29891 vs 0/29891
+double model/humanoid/22_humanoids.xml        pyramidal   1 |    798.3    742.6 |                  1.020 |   58.43/58.43   |     3.14/3.14     |  10/10  | 0/17528 vs 0/17528
+double model/humanoid/humanoid.xml            elliptic   10 |     60.0     58.2 |                  0.915 |    5.46/5.54    |     5.76/5.31     |  28/24  | 0/10926 vs 0/11082
+double model/humanoid/humanoid.xml            pyramidal   1 |     28.5     36.4 |                  0.992 |    2.90/2.92    |     3.11/3.12     |  10/10  | 0/5798 vs 0/5831
+double test/benchmark/testdata/boxpile.xml    elliptic    1 |    391.4    399.0 |                  0.995 |    3.95/3.95    |     4.09/4.08     |  11/11  | 0/1185 vs 0/1185
+double test/benchmark/testdata/boxpile.xml    elliptic   10 |    527.9    553.8 |                  0.997 |    5.46/5.46    |     7.11/6.53     |  25/20  | 0/1638 vs 0/1638
+single model/humanoid/22_humanoids.xml        elliptic   10 |   1030.0    797.8 |                  0.911 |  101.31/101.27  |    16.47/4.49     |  51/25  | 3537/30392 vs 0/30380
+single model/humanoid/22_humanoids.xml        pyramidal   1 |    680.2    686.6 |                  0.960 |   60.01/59.50   |     3.75/3.10     |  13/9   | 0/18003 vs 0/17850
+single model/humanoid/humanoid.xml            elliptic   10 |     48.2     44.7 |                  0.924 |    5.47/5.37    |    16.21/4.34     |  51/24  | 1202/10950 vs 0/10743
+single model/humanoid/humanoid.xml            pyramidal   1 |     33.7     31.3 |                  1.031 |    2.97/3.07    |     3.76/3.12     |  12/10  | 0/5935 vs 0/6140
+single test/benchmark/testdata/boxpile.xml    elliptic    1 |    436.1    428.8 |                  0.979 |    3.89/3.90    |    12.51/3.67     |  51/9   | 110/1168 vs 0/1171
+single test/benchmark/testdata/boxpile.xml    elliptic   10 |    618.2    649.3 |                  1.034 |    5.53/5.57    |    15.49/5.76     |  51/18  | 115/1660 vs 0/1670

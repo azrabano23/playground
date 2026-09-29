@@ -15,7 +15,12 @@ NEW="${NEW:-/home/user/oss3/nautilus_trader}"
 PROFILE="${PROFILE:-bench}"
 CPU="${CPU:-3}"
 ROUNDS="${ROUNDS:-2}"
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/home/user/oss3/target-shared}"
+# Separate target dirs: cargo's path-independent metadata hashing makes two worktrees of the
+# same workspace collide in a shared target dir. Criterion results go to one shared place.
+BASE_TARGET="${BASE_TARGET:-/home/user/oss3/target-shared}"
+NEW_TARGET="${NEW_TARGET:-/home/user/oss3/target-new}"
+export CRITERION_HOME="${CRITERION_HOME:-/home/user/oss3/criterion}"
+export CARGO_INCREMENTAL=0
 OUT="${OUT:-$HERE/results}"
 mkdir -p "$OUT"
 
@@ -57,17 +62,18 @@ run() {
 # Alternate base/new so slow drift in machine state affects both equally
 for round in $(seq 1 "$ROUNDS"); do
   for label in base new; do
-    tree="$BASE"; [[ "$label" == new ]] && tree="$NEW"
-    (cd "$tree" && BENCH_LABEL="$label (round $round)" run cargo bench -q -p nautilus-model \
+    tree="$BASE"; target="$BASE_TARGET"
+    [[ "$label" == new ]] && tree="$NEW" && target="$NEW_TARGET"
+    (cd "$tree" && CARGO_TARGET_DIR="$target" BENCH_LABEL="$label (round $round)" run cargo bench -q -p nautilus-model \
       --profile "$PROFILE" --bench book_l2_alloc_latency) | tee -a "$OUT/alloc_latency.md"
     echo >> "$OUT/alloc_latency.md"
   done
 done
 
 # Criterion: save the baseline, then compare the patched build against it
-(cd "$BASE" && run cargo bench -p nautilus-model --profile "$PROFILE" --bench book_l2_criterion \
+(cd "$BASE" && CARGO_TARGET_DIR="$BASE_TARGET" run cargo bench -p nautilus-model --profile "$PROFILE" --bench book_l2_criterion \
   -- --save-baseline base) 2>&1 | tee "$OUT/criterion_base.txt"
-(cd "$NEW" && run cargo bench -p nautilus-model --profile "$PROFILE" --bench book_l2_criterion \
+(cd "$NEW" && CARGO_TARGET_DIR="$NEW_TARGET" run cargo bench -p nautilus-model --profile "$PROFILE" --bench book_l2_criterion \
   -- --baseline base) 2>&1 | tee "$OUT/criterion_new_vs_base.txt"
 
 rm -rf "$SAMPLE_DIR"

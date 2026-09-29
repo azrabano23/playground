@@ -1,0 +1,29 @@
+# 0001 only (zone-boundary bracketing + skip, no tolerance floor, no warning)
+######## c1-double: elliptic 10 20
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=8B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 2.36e-07)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 129905  mean evals 5.29  max evals 22  exhausted(neval>=ls) 334  (recorded with zero improvement: 0)
+  mean newton iters 3.248  mean mj_forward time 2.86 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## c1-single: elliptic 10 20
+cone=elliptic impratio=10 ls_iterations=20 mjtNum=4B steps=160450 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0.00269)
+  |qacc-ref|>1e-3: 43   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 133063  mean evals 10.26  max evals 22  exhausted(neval>=ls) 18020  (recorded with zero improvement: 0)
+  mean newton iters 3.327  mean mj_forward time 3.34 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## c1-double: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=8B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 0)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 114186  mean evals 4.17  max evals 14  exhausted(neval>=ls) 0  (recorded with zero improvement: 0)
+  mean newton iters 2.855  mean mj_forward time 2.40 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
+######## c1-single: elliptic 1 50
+cone=elliptic impratio=1 ls_iterations=50 mjtNum=4B steps=160210 solves_with_contact=40000
+  |qacc-ref|>1: 0  (max 3.05e-05)
+  |qacc-ref|>1e-3: 0   of which restart gives 0 iterations (false fixed point): 0
+  line searches: 116783  mean evals 13.07  max evals 50  exhausted(neval>=ls) 13709  (recorded with zero improvement: 0)
+  mean newton iters 2.920  mean mj_forward time 2.70 us
+  warnings counted in test mjData: 0 (first messages printed: 0)
