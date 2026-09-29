@@ -29,6 +29,19 @@ jobs:
         run: cd wormstage && pytest -q
       - name: myoedge
         run: cd myoedge && pytest -q
+      - name: ticktotrade (verilog sim vs golden model)
+        run: |
+          sudo apt-get update && sudo apt-get install -y iverilog
+          pip install -e ./ticktotrade[test]
+          cd ticktotrade && pytest -q
+      - name: lowbit (quantized gemm kernels, every isa path)
+        run: |
+          pip install -e ./lowbit[test]
+          cd lowbit && pytest -q && LOWBIT_ISA=avx2 pytest -q && LOWBIT_ISA=scalar pytest -q
+      - name: qfuzz (onnxruntime quantized-op fuzzer)
+        run: |
+          pip install -e ./qfuzz[test]
+          cd qfuzz && pytest -q
       - name: documented numbers match the ledgers
         run: |
           cd pocketpolicy && loopgraph claims results/ledger.jsonl results/claims.json && cd ..
