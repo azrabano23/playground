@@ -473,12 +473,18 @@ fn run_scenario(name: &str, deltas: &[OrderBookDelta], passes: usize) {
 /// Instruction-count mode for cachegrind: warm up once, then apply `passes` replays and exit.
 /// Differencing two runs with different `passes` removes setup cost from the count.
 fn cachegrind_mode(scenario: &str, passes: usize) {
+    // "l3:<depth>" replays the same stream into an L3_MBO book (BTreeMap storage) to check the
+    // storage enum does not regress the L3 path
+    let (book_type, scenario) = match scenario.strip_prefix("l3:") {
+        Some(rest) => (BookType::L3_MBO, rest),
+        None => (BookType::L2_MBP, scenario),
+    };
     let deltas = if scenario == "bybit" {
         load_bybit(&std::env::var("BYBIT_OB500").expect("BYBIT_OB500"))
     } else {
         generate_stream(scenario.parse().expect("depth"), STREAM_LEN, SEED)
     };
-    let mut book = OrderBook::new(deltas[0].instrument_id, BookType::L2_MBP);
+    let mut book = OrderBook::new(deltas[0].instrument_id, book_type);
     for d in &deltas {
         book.apply_delta(d).unwrap();
     }

@@ -1,9 +1,9 @@
-From eb6635bc4d8e7a02a97a4292a62c1e14e4d8f957 Mon Sep 17 00:00:00 2001
+From 269b4bf1b2645e01791768872ff191b915d7361b Mon Sep 17 00:00:00 2001
 From: Azra Bano <azrabano.work@gmail.com>
 Date: Tue, 29 Sep 2026 00:26:37 +0000
 Subject: [PATCH] Add sorted array level storage for L2 order books
 
-- Store L2_MBP ladder levels in a contiguous array sorted worst-to-best
+- Store L2_MBP ladder levels in a contiguous sorted ring buffer
 - Reuse emptied levels from a spare pool so steady-state deltas do not allocate
 - Keep BTreeMap storage for L1_MBP and L3_MBO ladders
 - Accept any best-first level iterator in the book analysis helpers
@@ -16,10 +16,10 @@ Resolves #4925
  crates/model/benches/book_l2_criterion.rs | 349 +++++++++
  crates/model/src/orderbook/analysis.rs    |  41 +-
  crates/model/src/orderbook/ladder.rs      |  27 +-
- crates/model/src/orderbook/levels.rs      | 843 ++++++++++++++++++++++
+ crates/model/src/orderbook/levels.rs      | 846 ++++++++++++++++++++++
  crates/model/src/orderbook/mod.rs         |   1 +
  crates/model/tests/l2_book_allocations.rs | 204 ++++++
- 7 files changed, 1439 insertions(+), 31 deletions(-)
+ 7 files changed, 1442 insertions(+), 31 deletions(-)
  create mode 100644 crates/model/benches/book_l2_criterion.rs
  create mode 100644 crates/model/src/orderbook/levels.rs
  create mode 100644 crates/model/tests/l2_book_allocations.rs
@@ -621,10 +621,10 @@ index 3bd13fb..77123c4 100644
          if self.levels.len() <= 1 {
 diff --git a/crates/model/src/orderbook/levels.rs b/crates/model/src/orderbook/levels.rs
 new file mode 100644
-index 0000000..2ac6080
+index 0000000..d6445b0
 --- /dev/null
 +++ b/crates/model/src/orderbook/levels.rs
-@@ -0,0 +1,843 @@
+@@ -0,0 +1,846 @@
 +// -------------------------------------------------------------------------------------------------
 +//  Copyright (C) 2015-2026 Nautech Systems Pty Ltd. All rights reserved.
 +//  https://nautechsystems.io
@@ -646,24 +646,23 @@ index 0000000..2ac6080
 +//! best-first order behind a small ordered-map interface, with two backends:
 +//!
 +//! - `Tree`: a `BTreeMap<BookPrice, BookLevel>`, used for `L1_MBP` and `L3_MBO` books.
-+//! - `Sorted`: a contiguous array of levels sorted worst-to-best, used for `L2_MBP` books.
++//! - `Sorted`: a contiguous ring buffer of levels sorted worst-to-best, used for `L2_MBP` books.
 +//!
-+//! The sorted backend keeps the best price at the end of the array, so the common updates near
-+//! the top of the book find their level in a short binary search over contiguous memory and move
-+//! few elements on insert or removal. Emptied levels go to a spare pool and are reused for new
-+//! price levels, so after the ladder reaches its high-water depth, adding and removing levels
-+//! does not touch the heap.
++//! The sorted backend finds a level with a binary search over contiguous memory. Inserting or
++//! removing a level moves only the elements between it and the nearer end of the buffer, so the
++//! common churn at the top of the book and at the published depth boundary moves few elements.
++//! Emptied levels go to a spare pool and are reused for new price levels, so after the ladder
++//! reaches its high-water depth, adding and removing levels does not touch the heap.
 +//!
 +//! Capacity grows on demand (amortized doubling) and is retained until the book is dropped.
 +//! Depth beyond the previous high-water mark allocates once; there is no fixed depth limit and
 +//! no fallback path.
 +
 +use std::{
-+    collections::{BTreeMap, btree_map},
++    collections::{BTreeMap, VecDeque, btree_map, vec_deque},
 +    fmt::Debug,
 +    iter::{FusedIterator, Rev},
 +    ops::{Bound, RangeBounds},
-+    slice,
 +};
 +
 +use crate::{
@@ -768,7 +767,7 @@ index 0000000..2ac6080
 +        match self {
 +            Self::Tree(map) => map.remove(price),
 +            Self::Sorted(sorted) => match sorted.find(price) {
-+                Ok(idx) => Some(sorted.levels.remove(idx)),
++                Ok(idx) => sorted.levels.remove(idx),
 +                Err(_) => None,
 +            },
 +        }
@@ -790,7 +789,7 @@ index 0000000..2ac6080
 +    pub(crate) fn pop_first(&mut self) -> Option<(BookPrice, BookLevel)> {
 +        match self {
 +            Self::Tree(map) => map.pop_first(),
-+            Self::Sorted(sorted) => sorted.levels.pop().map(|level| (level.price, level)),
++            Self::Sorted(sorted) => sorted.levels.pop_back().map(|level| (level.price, level)),
 +        }
 +    }
 +
@@ -808,8 +807,7 @@ index 0000000..2ac6080
 +                    let price = level.price;
 +                    if keep(&price, level) {
 +                        idx += 1;
-+                    } else {
-+                        let level = sorted.levels.remove(idx);
++                    } else if let Some(level) = sorted.levels.remove(idx) {
 +                        sorted.spare.push(level);
 +                    }
 +                }
@@ -838,7 +836,7 @@ index 0000000..2ac6080
 +    {
 +        match self {
 +            Self::Tree(map) => LevelsRange::Tree(map.range(range)),
-+            Self::Sorted(sorted) => LevelsRange::Sorted(sorted.range(&range).iter().rev()),
++            Self::Sorted(sorted) => LevelsRange::Sorted(sorted.range(&range).rev()),
 +        }
 +    }
 +
@@ -875,7 +873,7 @@ index 0000000..2ac6080
 +/// Iterator over the price levels of a [`LadderLevels`], best price first.
 +pub(crate) enum LevelsIter<'a> {
 +    Tree(btree_map::Iter<'a, BookPrice, BookLevel>),
-+    Sorted(Rev<slice::Iter<'a, BookLevel>>),
++    Sorted(Rev<vec_deque::Iter<'a, BookLevel>>),
 +}
 +
 +impl<'a> Iterator for LevelsIter<'a> {
@@ -916,7 +914,7 @@ index 0000000..2ac6080
 +#[cfg_attr(not(feature = "ffi"), allow(dead_code))]
 +pub(crate) enum LevelsRange<'a> {
 +    Tree(btree_map::Range<'a, BookPrice, BookLevel>),
-+    Sorted(Rev<slice::Iter<'a, BookLevel>>),
++    Sorted(Rev<vec_deque::Iter<'a, BookLevel>>),
 +}
 +
 +impl<'a> Iterator for LevelsRange<'a> {
@@ -952,10 +950,14 @@ index 0000000..2ac6080
 +impl FusedIterator for LevelsRange<'_> {}
 +
 +/// Contiguous price levels sorted worst-to-best, with a pool of spare levels for reuse.
++///
++/// The levels live in a ring buffer, so inserting or removing a level moves only the elements
++/// between it and the nearer end: churn at the top of the book and at the published depth
++/// boundary are both cheap.
 +pub(crate) struct SortedLevels {
 +    side: OrderSide,
-+    /// Active levels, worst price at index 0 and best price at the end.
-+    levels: Vec<BookLevel>,
++    /// Active levels, worst price at the front and best price at the back.
++    levels: VecDeque<BookLevel>,
 +    /// Emptied levels kept for reuse, so their order storage is not reallocated.
 +    spare: Vec<BookLevel>,
 +}
@@ -964,7 +966,7 @@ index 0000000..2ac6080
 +    fn new(side: OrderSide) -> Self {
 +        Self {
 +            side,
-+            levels: Vec::new(),
++            levels: VecDeque::new(),
 +            spare: Vec::new(),
 +        }
 +    }
@@ -987,7 +989,7 @@ index 0000000..2ac6080
 +    }
 +
 +    fn clear(&mut self) {
-+        self.spare.append(&mut self.levels);
++        self.spare.extend(self.levels.drain(..));
 +    }
 +
 +    fn insert(&mut self, level: BookLevel) -> Option<BookLevel> {
@@ -1022,15 +1024,16 @@ index 0000000..2ac6080
 +    }
 +
 +    fn discard(&mut self, price: &BookPrice) {
-+        if let Ok(idx) = self.find(price) {
-+            let level = self.levels.remove(idx);
++        if let Ok(idx) = self.find(price)
++            && let Some(level) = self.levels.remove(idx)
++        {
 +            self.spare.push(level);
 +        }
 +    }
 +
-+    /// Returns the stored (worst-to-best) slice of levels within `range`.
++    /// Returns the stored (worst-to-best) levels within `range`.
 +    #[cfg_attr(not(feature = "ffi"), allow(dead_code))]
-+    fn range<R>(&self, range: &R) -> &[BookLevel]
++    fn range<R>(&self, range: &R) -> vec_deque::Iter<'_, BookLevel>
 +    where
 +        R: RangeBounds<BookPrice>,
 +    {
@@ -1059,7 +1062,7 @@ index 0000000..2ac6080
 +        };
 +        let end = end.max(start);
 +
-+        &self.levels[len - end..len - start]
++        self.levels.range(len - end..len - start)
 +    }
 +}
 +

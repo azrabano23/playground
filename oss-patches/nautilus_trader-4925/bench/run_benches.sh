@@ -54,7 +54,7 @@ run() {
 
 {
   echo "host: $(uname -srm), $(nproc) vCPU, $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
-  echo "toolchain: $(rustc --version)"
+  echo "toolchain: $(cd "$NEW" && rustc --version)"
   echo "profile: $PROFILE, pinned to CPU $CPU, ASLR disabled"
   echo
 } > "$OUT/alloc_latency.md"

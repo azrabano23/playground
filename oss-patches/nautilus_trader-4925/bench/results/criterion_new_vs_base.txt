@@ -1,0 +1,33 @@
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.30s
+     Running benches/book_l2_criterion.rs (/home/user/oss3/target-new/release/deps/book_l2_criterion-8bb80d501d9f8f27)
+Benchmarking l2_mbp_delta_stream/apply_delta/10
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Warming up for 3.0000 s
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Collecting 100 samples in estimated 5.7052 s (700 iterations)
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Analyzing
+l2_mbp_delta_stream/apply_delta/10
+                        time:   [7.6501 ms 7.8354 ms 8.0276 ms]
+                        thrpt:  [12.457 Melem/s 12.763 Melem/s 13.072 Melem/s]
+                 change:
+                        time:   [-23.813% -21.458% -18.789%] (p = 0.00 < 0.05)
+                        thrpt:  [+23.136% +27.320% +31.256%]
+                        Performance has improved.
+Found 19 outliers among 100 measurements (19.00%)
+  12 (12.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+Benchmarking l2_mbp_delta_stream/apply_delta/100
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Warming up for 3.0000 s
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Collecting 100 samples in estimated 5.4060 s (600 iterations)
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Analyzing
+l2_mbp_delta_stream/apply_delta/100
+                        time:   [9.2705 ms 9.4713 ms 9.6993 ms]
+                        thrpt:  [10.310 Melem/s 10.558 Melem/s 10.787 Melem/s]
+                 change:
+                        time:   [-16.910% -14.477% -11.824%] (p = 0.00 < 0.05)
+                        thrpt:  [+13.409% +16.927% +20.351%]
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  8 (8.00%) high mild
+  3 (3.00%) high severe
+
