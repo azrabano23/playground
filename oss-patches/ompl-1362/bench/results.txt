@@ -94,3 +94,22 @@ distance():    2.15 us/call
 interpolate(): 2.58 us/call
 
 ### after: owen_bench 100000 2000 100 1 0.5235987755982988
+pairs=100000 bounds=[-100,100]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 1  (0.001%), exceptions: 0
+  category H:  47736 pairs,      0 failures (0.00%)
+  category L:  49747 pairs,      0 failures (0.00%)
+  category M:   2517 pairs,      1 failures (0.04%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.43e-10)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 0 of 1 (medium family 0, helix family 0)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 2.67 turn radii
+reference: 2000 pairs (989 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 8e-16  median 0  p99 3.45e-16  >1e-6: 0
+relative gap |distance - ref|/ref, non-low:  max 8e-16  median 0  p99 3.92e-16  >1e-6: 0
+distance():    1.12 us/call
+  distance(), category L: 0.52 us/call
+  distance(), category M: 10.28 us/call
+  distance(), category H: 1.65 us/call
+interpolate(): 1.59 us/call
+
+### before: owen_bench 100000 2000 1000 1 0.5235987755982988
