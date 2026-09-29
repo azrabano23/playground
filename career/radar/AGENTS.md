@@ -143,6 +143,9 @@ qualify, write fewer. Never pad with weak roles.
 
 ## E. Referrals
 
+First reuse: if any existing `jobs/*` row for the same company already has `alumni`, copy them
+(and use the first name in `referral_dm`) before searching again.
+
 For each kept job: `alumni_search_url` =
 `https://www.linkedin.com/search/results/people/?keywords=<Company>%20Rutgers`. Then Exa
 `category:people <Company> Rutgers University` (or, without Exa, WebSearch
