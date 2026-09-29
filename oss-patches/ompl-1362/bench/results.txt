@@ -1,0 +1,39 @@
+### before: owen_bench 100000 2000 10 1 0.5235987755982988
+pairs=100000 bounds=[-10,10]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 1245  (1.245%), exceptions: 0
+  category H:  22638 pairs,    333 failures (1.47%)
+  category L:  57548 pairs,      0 failures (0.00%)
+  category M:  19814 pairs,    912 failures (4.60%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.37e-11)
+returned paths violating radius/pitch limits: 21
+failed pairs (first 3000 at most) for which brute force finds a path: 1090 of 1245 (medium family 757, helix family 333)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 3.84 turn radii
+reference: 2000 pairs (824 non-low-altitude, 2 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 5.19  median 0  p99 0.036  >1e-6: 21
+relative gap |distance - ref|/ref, non-low:  max 5.19  median 1.1e-15  p99 2.63  >1e-6: 21
+distance():    3.06 us/call
+  distance(), category L: 0.43 us/call
+  distance(), category M: 9.84 us/call
+  distance(), category H: 4.46 us/call
+interpolate(): 3.38 us/call
+
+### after: owen_bench 100000 2000 10 1 0.5235987755982988
+pairs=100000 bounds=[-10,10]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 164  (0.164%), exceptions: 0
+  category H:  22638 pairs,      0 failures (0.00%)
+  category L:  57548 pairs,      0 failures (0.00%)
+  category M:  19814 pairs,    164 failures (0.83%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.37e-11)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 9 of 164 (medium family 9, helix family 0)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 3.84 turn radii
+reference: 2000 pairs (824 non-low-altitude, 2 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 5.36e-16  median 0  p99 3.84e-16  >1e-6: 0
+relative gap |distance - ref|/ref, non-low:  max 5.36e-16  median 0  p99 4.03e-16  >1e-6: 0
+distance():    3.85 us/call
+  distance(), category L: 0.53 us/call
+  distance(), category M: 15.02 us/call
+  distance(), category H: 4.55 us/call
+interpolate(): 4.42 us/call
+
+### before: owen_bench 100000 2000 3 1 0.5235987755982988
