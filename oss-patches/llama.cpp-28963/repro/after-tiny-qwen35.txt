@@ -1,0 +1,66 @@
+$ embd-determinism qwen35-dense.gguf tokens 5 8 4 n
+run  0: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  1: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  2: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  3: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  4: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  5: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  6: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+run  7: hash c114ac2a5d9e1e7d  logit[0]=-0.00985655934
+mode=tokens pos=n n_tokens=5 runs=8 distinct_hashes=1
+
+$ embd-determinism qwen35-dense.gguf embd 1 8 4 n
+run  0: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  1: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  2: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  3: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  4: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  5: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  6: hash 2679e09f38f47b34  logit[0]=0.144499123
+run  7: hash 2679e09f38f47b34  logit[0]=0.144499123
+mode=embd pos=n n_tokens=1 runs=8 distinct_hashes=1
+
+$ embd-determinism qwen35-dense.gguf embd 5 8 4 n
+run  0: hash e803a39874de2e61  logit[0]=0.0937380344
+run  1: hash e803a39874de2e61  logit[0]=0.0937380344
+run  2: hash e803a39874de2e61  logit[0]=0.0937380344
+run  3: hash e803a39874de2e61  logit[0]=0.0937380344
+run  4: hash e803a39874de2e61  logit[0]=0.0937380344
+run  5: hash e803a39874de2e61  logit[0]=0.0937380344
+run  6: hash e803a39874de2e61  logit[0]=0.0937380344
+run  7: hash e803a39874de2e61  logit[0]=0.0937380344
+mode=embd pos=n n_tokens=5 runs=8 distinct_hashes=1
+
+$ embd-determinism qwen35-dense.gguf embd 5 8 1 n
+run  0: hash e803a39874de2e61  logit[0]=0.0937380344
+run  1: hash e803a39874de2e61  logit[0]=0.0937380344
+run  2: hash e803a39874de2e61  logit[0]=0.0937380344
+run  3: hash e803a39874de2e61  logit[0]=0.0937380344
+run  4: hash e803a39874de2e61  logit[0]=0.0937380344
+run  5: hash e803a39874de2e61  logit[0]=0.0937380344
+run  6: hash e803a39874de2e61  logit[0]=0.0937380344
+run  7: hash e803a39874de2e61  logit[0]=0.0937380344
+mode=embd pos=n n_tokens=5 runs=8 distinct_hashes=1
+
+$ embd-determinism qwen35-dense.gguf embd 5 8 4 full
+run  0: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  1: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  2: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  3: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  4: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  5: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  6: hash 81e098e7552b6a27  logit[0]=0.0937363952
+run  7: hash 81e098e7552b6a27  logit[0]=0.0937363952
+mode=embd pos=full n_tokens=5 runs=8 distinct_hashes=1
+
+$ embd-determinism qwen35-dense.gguf embd 5 8 4 null
+run  0: hash e803a39874de2e61  logit[0]=0.0937380344
+run  1: hash e803a39874de2e61  logit[0]=0.0937380344
+run  2: hash e803a39874de2e61  logit[0]=0.0937380344
+run  3: hash e803a39874de2e61  logit[0]=0.0937380344
+run  4: hash e803a39874de2e61  logit[0]=0.0937380344
+run  5: hash e803a39874de2e61  logit[0]=0.0937380344
+run  6: hash e803a39874de2e61  logit[0]=0.0937380344
+run  7: hash e803a39874de2e61  logit[0]=0.0937380344
+mode=embd pos=null n_tokens=5 runs=8 distinct_hashes=1
+

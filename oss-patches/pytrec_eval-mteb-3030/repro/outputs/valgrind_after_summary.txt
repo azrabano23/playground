@@ -1,0 +1,5 @@
+==5322== ERROR SUMMARY: 21513 errors from 15 contexts (suppressed: 0 from 0)
+grep -c 'form_res_rels.c|m_ndcg|utility_pool.c' in full log: 0 (all remaining reports are inside the CPython interpreter / the pre-existing new[]/free mismatch)
+      2 ==5322== Conditional jump or move depends on uninitialised value(s)
+      6 ==5322== Mismatched free() / delete / delete []
+      7 ==5322== Use of uninitialised value of size 8

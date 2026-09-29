@@ -1,7 +1,7 @@
-From 04ca855a5c4175e59d09b882116c39163d87ea72 Mon Sep 17 00:00:00 2001
+From 5e117500d86acca7753e5e6dc5b9bc6f4c8c0698 Mon Sep 17 00:00:00 2001
 From: Azra Bano <azrabano.work@gmail.com>
 Date: Mon, 28 Sep 2026 23:44:18 +0000
-Subject: [PATCH] Fix stale/garbage scores for queries without judgments in the
+Subject: [PATCH] Fix garbage/stale scores for queries without judgments in the
  C extension
 
 RankingBuilder only set docno on the end marker of each qrels list, so its
@@ -28,16 +28,22 @@ in the extension instead:
   instead of returning whatever was left in the buffers. Previously, e.g.,
   a relevance of 10**12 made every later query silently score 0.
 
+One exception: an empty ranking evaluated before trec_eval has allocated
+its buffers makes te_chk_and_malloc return NULL for 0 items, which is
+reported as UNDEF. That case keeps its previous result (all zeros) until
+trec_eval is fixed upstream.
+
 The tests call pytrec_eval_ext directly in fresh interpreters, across hash
 seeds and with glibc's MALLOC_PERTURB_, which fails deterministically
-before this change.
+before this change. They also check that an empty ranking in a fresh
+process does not raise.
 ---
- src/pytrec_eval.cpp        | 33 +++++++++++++++------
- tests/pytrec_eval_tests.py | 59 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 84 insertions(+), 8 deletions(-)
+ src/pytrec_eval.cpp        | 30 +++++++++++++--
+ tests/pytrec_eval_tests.py | 75 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+), 3 deletions(-)
 
 diff --git a/src/pytrec_eval.cpp b/src/pytrec_eval.cpp
-index 305f9fa..02566ca 100644
+index 305f9fa..7f53c5f 100644
 --- a/src/pytrec_eval.cpp
 +++ b/src/pytrec_eval.cpp
 @@ -177,7 +177,10 @@ class RankingBuilder {
@@ -61,24 +67,26 @@ index 305f9fa..02566ca 100644
  
      for (size_t result_query_idx = 0;
           result_query_idx < num_queries;
-@@ -649,12 +652,22 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
+@@ -649,13 +652,30 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
              }
  
              // Compute measure.
 -            te_trec_measures[measure_idx]->calc_meas(
--                &self->epi_,
--                &self->all_rel_info_.rel_info[eval_query_idx],
--                &all_results.results[result_query_idx],
--                te_trec_measures[measure_idx],
--                &q_eval);
-+            if (UNDEF == te_trec_measures[measure_idx]->calc_meas(
-+                    &self->epi_,
-+                    &self->all_rel_info_.rel_info[eval_query_idx],
-+                    &all_results.results[result_query_idx],
-+                    te_trec_measures[measure_idx],
-+                    &q_eval)) {
-+                // Never return the values left in q_eval (or trec_eval's
-+                // per-query cache) after a failed computation.
++            const int calc_status = te_trec_measures[measure_idx]->calc_meas(
+                 &self->epi_,
+                 &self->all_rel_info_.rel_info[eval_query_idx],
+                 &all_results.results[result_query_idx],
+                 te_trec_measures[measure_idx],
+                 &q_eval);
+ 
++            // Never return the values left in q_eval (or trec_eval's
++            // per-query cache) after a failed computation. Exception: for an
++            // empty ranking, trec_eval versions whose te_chk_and_malloc returns
++            // NULL for a request of 0 items report UNDEF when nothing was
++            // allocated yet; keep the previous behaviour (all zeros) there.
++            const long num_ranked = ((TEXT_RESULTS_INFO*)
++                all_results.results[result_query_idx].q_results)->num_text_results;
++            if (calc_status == UNDEF && num_ranked > 0) {
 +                PyErr_Format(
 +                    PyExc_RuntimeError,
 +                    "trec_eval failed to compute measure %s for query %s.",
@@ -87,10 +95,11 @@ index 305f9fa..02566ca 100644
 +                Py_CLEAR(result);
 +                break;
 +            }
- 
++
              CHECK_GE(te_trec_measures[measure_idx]->eval_index, 0);
  
-@@ -696,6 +709,10 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
+             if (te_trec_measures[measure_idx]->print_single_meas == &te_print_single_meas_a_cut) {
+@@ -696,6 +716,10 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
              accum_eval.num_queries++;
          }
  
@@ -102,7 +111,7 @@ index 305f9fa..02566ca 100644
              result,
              PyUnicode_FromString(qid.c_str()),
 diff --git a/tests/pytrec_eval_tests.py b/tests/pytrec_eval_tests.py
-index c2a04f0..74ebc14 100644
+index c2a04f0..55f4b49 100644
 --- a/tests/pytrec_eval_tests.py
 +++ b/tests/pytrec_eval_tests.py
 @@ -1,6 +1,9 @@
@@ -115,7 +124,7 @@ index c2a04f0..74ebc14 100644
  import unittest
  
  import pytrec_eval
-@@ -322,6 +325,62 @@ class PyTrecEvalUnitTest(unittest.TestCase):
+@@ -322,6 +325,78 @@ class PyTrecEvalUnitTest(unittest.TestCase):
          evaluator = pytrec_eval.RelevanceEvaluator({}, {})
          self.assertEqual(evaluator.evaluate({}), {})
  
@@ -161,6 +170,22 @@ index c2a04f0..74ebc14 100644
 +                    for measure, value in measures.items():
 +                        self.assertAlmostEqual(
 +                            result[qid][measure], value, msg=(qid, measure))
++
++    def test_empty_ranking_in_fresh_process(self):
++        # An empty ranking must not be reported as a trec_eval failure, also
++        # when it is the very first thing evaluated in a process.
++        script = (
++            'import json, pytrec_eval\n'
++            'ev = pytrec_eval.RelevanceEvaluator('
++            '{"q1": {"d1": 1, "d2": 1}}, {"num_ret", "recall.10", "ndcg"})\n'
++            'print(json.dumps(ev.evaluate({"q1": {}})))\n')
++        proc = subprocess.run([sys.executable, '-c', script],
++                              capture_output=True, text=True, timeout=120)
++        self.assertEqual(proc.returncode, 0, proc.stderr)
++        result = json.loads(proc.stdout)['q1']
++        self.assertEqual(result['num_ret'], 0.0)
++        self.assertEqual(result['recall_10'], 0.0)
++        self.assertEqual(result['ndcg'], 0.0)
 +
 +    def test_failed_measure_raises(self):
 +        # A relevance level this large makes trec_eval's allocation fail. This

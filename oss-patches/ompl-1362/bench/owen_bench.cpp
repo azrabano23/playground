@@ -275,6 +275,7 @@ int main(int argc, char **argv)
     int fails = 0, throws = 0, badEndpoint = 0, badConstraint = 0;
     std::map<char, int> catCount, catFail;
     std::vector<int> failed;
+    std::vector<char> category(numPairs);
     double maxEndErr = 0.;
     ob::State *tmp = space->allocState();
     for (int i = 0; i < numPairs; ++i)
@@ -286,6 +287,7 @@ int main(int argc, char **argv)
         // category the input *should* fall in (same thresholds as OwenStateSpace)
         char cat = std::abs(dz) <= len0 * tanP ? 'L' : (std::abs(dz) <= (len0 + TWOPI * rho) * tanP ? 'M' : 'H');
         catCount[cat]++;
+        category[i] = cat;
         std::optional<ob::OwenStateSpace::PathType> path;
         try
         {
@@ -335,6 +337,9 @@ int main(int argc, char **argv)
         int feasible = 0;
         double maxInfeasibleDist = 0.;
         std::map<RefKind, int> kinds;
+        // cap the work: classify at most the first 3000 failures
+        if (failed.size() > 3000)
+            failed.resize(3000);
         for (int i : failed)
         {
             auto *s1 = from[i]->as<ob::OwenStateSpace::StateType>();
@@ -349,7 +354,7 @@ int main(int argc, char **argv)
                 maxInfeasibleDist = std::max(maxInfeasibleDist, d);
             }
         }
-        std::printf("failed pairs for which brute force finds a path: %d of %zu (medium family %d, helix family %d)\n",
+        std::printf("failed pairs (first 3000 at most) for which brute force finds a path: %d of %zu (medium family %d, helix family %d)\n",
                     feasible, failed.size(), kinds[RefKind::MEDIUM], kinds[RefKind::HIGH]);
         if (feasible < (int)failed.size())
             std::printf("  the others have no Owen-type solution at all; largest horizontal distance among them: %.3g "
@@ -420,6 +425,32 @@ int main(int argc, char **argv)
         }
     auto t2 = clk::now();
     std::printf("distance():    %.2f us/call\n", std::chrono::duration<double, std::micro>(t1 - t0).count() / numPairs);
+    // distance() per category (best of 3 passes to reduce noise from other processes)
+    for (char c : {'L', 'M', 'H'})
+    {
+        double best = INF;
+        int n = 0;
+        for (int pass = 0; pass < 3; ++pass)
+        {
+            n = 0;
+            auto ta = clk::now();
+            for (int i = 0; i < numPairs; ++i)
+                if (category[i] == c)
+                {
+                    ++n;
+                    try
+                    {
+                        sink = sink + space->distance(from[i], to[i]);
+                    }
+                    catch (...)
+                    {
+                    }
+                }
+            best = std::min(best, std::chrono::duration<double, std::micro>(clk::now() - ta).count());
+        }
+        if (n > 0)
+            std::printf("  distance(), category %c: %.2f us/call\n", c, best / n);
+    }
     std::printf("interpolate(): %.2f us/call\n", std::chrono::duration<double, std::micro>(t2 - t1).count() / numPairs);
 
     space->freeState(tmp);

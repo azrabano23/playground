@@ -1,4 +1,4 @@
-..F....                                                        [100%]
+...F....                                                       [100%]
 =================================== FAILURES ===================================
 _____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='0') _____
 
@@ -144,7 +144,7 @@ self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_exten
                     for measure, value in measures.items():
 >                       self.assertAlmostEqual(
                             result[qid][measure], value, msg=(qid, measure))
-E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
 
 pytrec_eval_tests.py:368: AssertionError
 _____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='3') _____
@@ -389,7 +389,7 @@ self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_exten
                     for measure, value in measures.items():
 >                       self.assertAlmostEqual(
                             result[qid][measure], value, msg=(qid, measure))
-E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
 
 pytrec_eval_tests.py:368: AssertionError
 _ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='0', MALLOC_PERTURB_='1', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') _
@@ -497,7 +497,7 @@ self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_failed_measure_rais
 >       with self.assertRaises(RuntimeError):
 E       AssertionError: RuntimeError not raised
 
-pytrec_eval_tests.py:377: AssertionError
+pytrec_eval_tests.py:393: AssertionError
 =========================== short test summary info ============================
 SUBFAILED(PYTHONHASHSEED='0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
 SUBFAILED(PYTHONHASHSEED='1') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
@@ -510,4 +510,4 @@ SUBFAILED(PYTHONHASHSEED='7') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_emp
 SUBFAILED(PYTHONHASHSEED='0', MALLOC_PERTURB_='1', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
 SUBFAILED(PYTHONHASHSEED='0', MALLOC_PERTURB_='128', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
 FAILED pytrec_eval_tests.py::PyTrecEvalUnitTest::test_failed_measure_raises
-11 failed, 6 passed in 0.84s
+11 failed, 7 passed in 1.25s

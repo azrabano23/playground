@@ -1,8 +1,8 @@
-/bin/bash: line 1: 28182 Segmentation fault      PYTHONHASHSEED=2 timeout 60 /home/user/oss3/$p/bin/python $sc > /tmp/o.txt 2>&1
+/bin/bash: line 1:  5713 Segmentation fault      PYTHONHASHSEED=2 timeout 60 /home/user/oss3/$p/bin/python $sc > /tmp/o.txt 2>&1
 [0.5.10 (PyPI wheel)] neg_only.py exit=139 :: 
 [0.5.10 (PyPI wheel)] huge_rel.py exit=0 :: {"q1": {"P_1": 0.0, "ndcg": 0.0}, "q2": {"P_1": 0.0, "ndcg": 0.0}}
 [0.5.10 (PyPI wheel)] ext_tiny.py exit=0 :: {"q1": {"P_1": 1.0, "ndcg": 1.0, "ndcg_cut_1": 1.0, "ndcg_cut_3": 1.0, "recall_10": 1.0}, "q2": {"P_1": 0.0, "ndcg": 0.0, "ndcg_cut_1": 1.0, "ndcg_cut_3": 1.6309297535714575, "recall_10": 1.0}, "q3": {"P_1": 0.0, "ndcg": 0.0, "ndcg_cut_1": 1.0, "ndcg_cut_3": 1.6309297535714575, "recall_10": 1.0}, "q4": {"P_1": 0.0, "ndcg": 0.0, "ndcg_cut_1": 1.0, "ndcg_cut_3": 1.6309297535714575, "recall_10": 1.0}}
-/bin/bash: line 1: 28252 Segmentation fault      PYTHONHASHSEED=2 timeout 60 /home/user/oss3/$p/bin/python $sc > /tmp/o.txt 2>&1
+/bin/bash: line 1:  5735 Segmentation fault      PYTHONHASHSEED=2 timeout 60 /home/user/oss3/$p/bin/python $sc > /tmp/o.txt 2>&1
 [fixed pytrec_eval, old trec_eval submodule] neg_only.py exit=139 :: 
 [fixed pytrec_eval, old trec_eval submodule] huge_rel.py exit=0 :: RuntimeError: trec_eval failed to compute measure P for query q1.
 [fixed pytrec_eval, old trec_eval submodule] ext_tiny.py exit=0 :: {"q1": {"P_1": 1.0, "ndcg": 1.0, "ndcg_cut_1": 1.0, "ndcg_cut_3": 1.0, "recall_10": 1.0}, "q2": {"P_1": 0.0, "ndcg": 0.0, "ndcg_cut_1": 0.0, "ndcg_cut_3": 0.0, "recall_10": 0.0}, "q3": {"P_1": 1.0, "ndcg": 0.9197207891481876, "ndcg_cut_1": 1.0, "ndcg_cut_3": 0.9197207891481876, "recall_10": 1.0}, "q4": {"P_1": 0.0, "ndcg": 0.6309297535714575, "ndcg_cut_1": 0.0, "ndcg_cut_3": 0.6309297535714575, "recall_10": 1.0}}

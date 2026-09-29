@@ -1,7 +1,7 @@
 From 12152cbfd27c2d42579a11408b4958c2e5cbed9c Mon Sep 17 00:00:00 2001
 From: Azra Bano <azrabano.work@gmail.com>
 Date: Mon, 28 Sep 2026 23:30:13 +0000
-Subject: [PATCH] Fix te_form_res_rels on queries with no non-negative
+Subject: [PATCH 1/2] Fix te_form_res_rels on queries with no non-negative
  judgments
 
 te_form_res_rels initialised max_rel from the first qrel without
@@ -4226,6 +4226,54 @@ index d36b209..d6bfb8a 100644
  }
  
  void *te_chk_and_realloc(void *ptr, long *current_bound,
+-- 
+2.43.0
+
+
+From 4891e6ac1f1c235420b846ad3a39f351434abbfb Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:51:56 +0000
+Subject: [PATCH 2/2] te_chk_and_malloc: return usable space for a request of 0
+ items
+
+When nothing has been allocated yet (bound 0), a request for 0 items
+returned the NULL pointer. Callers such as te_form_res_rels treat that
+as an allocation failure, so a query with no retrieved documents gave
+UNDEF on first use. After te_form_res_rels_cleanup, the same request
+instead returned the freed, dangling pointer and succeeded.
+
+This cannot happen from the trec_eval command line, where every query
+in the results file has at least one document. Library users can hit it
+(e.g. pytrec_eval with an empty ranking for a query), and there the
+result depended on what had been evaluated before: num_rel came out as 0
+on the first call and correct on later calls.
+
+Always reserve at least one item.
+---
+ utility_pool.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/utility_pool.c b/utility_pool.c
+index d6bfb8a..5d222e4 100644
+--- a/utility_pool.c
++++ b/utility_pool.c
+@@ -29,11 +29,14 @@ void *te_chk_and_malloc(void *ptr, long *current_bound,
+ {
+     if (*current_bound < 0)
+         return (NULL);
+-    if (needed <= *current_bound)
++    if (needed <= *current_bound && *current_bound > 0)
+         return (ptr);
+     if (*current_bound > 0)
+         Free(ptr);
+-    *current_bound += needed;
++    /* Reserve at least one item, so that a request for 0 items before
++       anything was allocated does not return NULL (which callers treat
++       as an allocation failure) */
++    *current_bound += (needed > 0) ? needed : 1;
+     if (NULL == (ptr = malloc(*current_bound * size)))
+         /* Old space is gone; don't claim any space is allocated */
+         *current_bound = 0;
 -- 
 2.43.0
 

@@ -2,7 +2,7 @@
 
 **Title:** Fix te_form_res_rels crash/stale values for topics with no non-negative judgments
 
-**Branch:** `fix-form-res-rels-empty-qrels` (one commit, `trec_eval.patch`, based on master `ba38899`)
+**Branch:** `fix-form-res-rels-empty-qrels` (two commits, `trec_eval.patch`, based on master `ba38899`)
 
 **Repo status (checked 2026-09-28):** active. PRs from outside contributors are merged (#45 diazf, #48 arjenpdevries, #50 ishnid, merged 2026-07-20); #51 is open. No existing issue covers this. #46 ("Segfault from no topic overlap") is a different code path.
 
@@ -45,6 +45,10 @@ It then sizes and zeroes `rel_levels` with `max_rel + 1`. This fails in two case
   - Reset `saved_res_rels.num_rel_levels` to 0 before recounting, so it cannot carry over from the previous topic.
   - Add `current_query_valid`. It is cleared before a topic is recomputed and set only after all cached values are complete, so an error can never leave a half-built cache under that qid. It is also cleared in `te_form_res_rels_cleanup`. (As a side effect, a topic literally named `no query`, or `no_query` after a cleanup, can no longer match the placeholder string and get the empty, zero-filled cache.)
 - `utility_pool.c`: when `malloc` fails in `te_chk_and_malloc`, reset `*current_bound` to 0. The old space has already been freed, so the bound no longer describes allocated memory.
+- `utility_pool.c` (second commit): `te_chk_and_malloc` now reserves at least one item. Before, a request for 0 items with nothing allocated yet returned NULL, which callers treat as failure. So a query with no retrieved documents gave `UNDEF` on first use, but "worked" after `te_form_res_rels_cleanup`, because it then got the freed, dangling pointer back.
+  - This can't happen from the command line, where every query in the results file has at least one document.
+  - It can happen through library users. In pytrec_eval, `num_rel` for an empty ranking is 0 on the first call in a process and correct on later calls.
+  - No command-line test is possible for this. The pytrec_eval PR covers it.
 - Test: new `quicktest` case. `test/qrels.neg_only.test` is `test/qrels.test` with every judgment for topic 302 set to -2. The expected output is `test/out.test.neg_only`.
 
 ## Behaviour

@@ -1,0 +1,108 @@
+init
+  rejects_n_seq_max_too_large
+  rejects_n_seq_max_too_large (1 assertion(s))                                  [PASS]
+  rejects_invalid_token
+  rejects_invalid_token (3 assertion(s))                                        [PASS]
+  rejects_invalid_seq_id
+  rejects_invalid_seq_id (4 assertion(s))                                       [PASS]
+  copies_pos_seq_output
+  copies_pos_seq_output (26 assertion(s))                                       [PASS]
+  output_all
+  output_all (2 assertion(s))                                                   [PASS]
+  explicit_logits
+  explicit_logits (9 assertion(s))                                              [PASS]
+  pos_after_memory
+  pos_after_memory (3 assertion(s))                                             [PASS]
+  pos_continuity_with_memory
+  pos_continuity_with_memory (3 assertion(s))                                   [PASS]
+  rejects_non_continuous_positions
+  rejects_non_continuous_positions (1 assertion(s))                             [PASS]
+  rejects_decreasing_positions
+  rejects_decreasing_positions (1 assertion(s))                                 [PASS]
+  allows_equal_positions_in_seq
+  allows_equal_positions_in_seq (1 assertion(s))                                [PASS]
+  rejects_coupled_diverged_seqs
+  rejects_coupled_diverged_seqs (2 assertion(s))                                [PASS]
+init (56 assertion(s))                                                          [PASS]
+content_types
+  token_and_embd_together
+  token_and_embd_together (10 assertion(s))                                     [PASS]
+  rejects_mixed_content_types
+  rejects_mixed_content_types (1 assertion(s))                                  [PASS]
+  rejects_neither_token_nor_embd
+  rejects_neither_token_nor_embd (1 assertion(s))                               [PASS]
+  rejects_embd_size_mismatch
+  rejects_embd_size_mismatch (5 assertion(s))                                   [PASS]
+  rejects_double_embd
+  rejects_double_embd (1 assertion(s))                                          [PASS]
+  encoder_width
+  encoder_width (5 assertion(s))                                                [PASS]
+  rejects_mixing_widths
+  rejects_mixing_widths (1 assertion(s))                                        [PASS]
+content_types (24 assertion(s))                                                 [PASS]
+compat
+  token_batch_explicit_fields
+  token_batch_explicit_fields (27 assertion(s))                                 [PASS]
+  defaults_for_null_fields
+  defaults_for_null_fields (14 assertion(s))                                    [PASS]
+  auto_pos_starts_at_zero_without_memory
+  auto_pos_starts_at_zero_without_memory (2 assertion(s))                       [PASS]
+  auto_pos_is_tracked_per_seq
+  auto_pos_is_tracked_per_seq (4 assertion(s))                                  [PASS]
+  embd_batch_with_mrope_positions
+  embd_batch_with_mrope_positions (27 assertion(s))                             [PASS]
+  embd_batch_init_mrope_pos_in_bounds
+  embd_batch_init_mrope_pos_in_bounds (26 assertion(s))                         [PASS]
+  token_and_embd_both_set
+  token_and_embd_both_set (9 assertion(s))                                      [PASS]
+  embd_row_width_override
+  embd_row_width_override (6 assertion(s))                                      [PASS]
+compat (115 assertion(s))                                                       [PASS]
+split
+  split_simple_chunks
+  split_simple_chunks (26 assertion(s))                                         [PASS]
+  split_reset_allows_resplit
+  split_reset_allows_resplit (4 assertion(s))                                   [PASS]
+  split_equal_unequal_lengths
+  split_equal_unequal_lengths (20 assertion(s))                                 [PASS]
+  split_equal_coupled
+  split_equal_coupled (8 assertion(s))                                          [PASS]
+  split_seq_per_sequence
+  split_seq_per_sequence (15 assertion(s))                                      [PASS]
+  ubatch_reserve
+  ubatch_reserve (9 assertion(s))                                               [PASS]
+split (82 assertion(s))                                                         [PASS]
+keep_tail
+  noop_when_seqs_complete
+  noop_when_seqs_complete (5 assertion(s))                                      [PASS]
+  defers_seq_with_short_remainder
+  defers_seq_with_short_remainder (13 assertion(s))                             [PASS]
+  completes_first_seq_when_all_violate
+  completes_first_seq_when_all_violate (12 assertion(s))                        [PASS]
+  truncates_to_preserve_tail
+  truncates_to_preserve_tail (10 assertion(s))                                  [PASS]
+  keeps_full_ubatch_with_sufficient_remainder
+  keeps_full_ubatch_with_sufficient_remainder (6 assertion(s))                  [PASS]
+  multi_seq_prefix_kept
+  multi_seq_prefix_kept (8 assertion(s))                                        [PASS]
+keep_tail (54 assertion(s))                                                     [PASS]
+mrope
+  pos_layout_and_split
+  pos_layout_and_split (12 assertion(s))                                        [PASS]
+  pos_jump_allowed
+  pos_jump_allowed (3 assertion(s))                                             [PASS]
+mrope (15 assertion(s))                                                         [PASS]
+mtp_embd_width
+  mtp_uses_n_embd_out
+  mtp_uses_n_embd_out (2 assertion(s))                                          [PASS]
+  mtp_falls_back_to_n_embd_when_no_override
+  mtp_falls_back_to_n_embd_when_no_override (2 assertion(s))                    [PASS]
+  dflash_uses_n_embd_inp_enc
+  dflash_uses_n_embd_inp_enc (3 assertion(s))                                   [PASS]
+mtp_embd_width (7 assertion(s))                                                 [PASS]
+
+tests      : 51
+assertions : 353
+failures   : 0
+exceptions : 0
+skipped    : 0

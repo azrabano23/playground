@@ -3,15 +3,16 @@ platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /home/user/oss3/
 cachedir: .pytest_cache
 rootdir: /home/user/oss3/pytrec_eval
 configfile: pyproject.toml
-collecting ... collected 7 items
+collecting ... collected 8 items
 
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty PASSED              [ 14%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty PASSED              [ 12%]
 pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension 
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension PASSED [ 28%]
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_failed_measure_raises PASSED [ 42%]
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_measure_params PASSED     [ 57%]
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_ndcg PASSED               [ 71%]
-pytrec_eval_tests.py::PyTrecEvalUnitTest::test_ndcg_cut PASSED           [ 85%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension PASSED [ 25%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_ranking_in_fresh_process PASSED [ 37%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_failed_measure_raises PASSED [ 50%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_measure_params PASSED     [ 62%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_ndcg PASSED               [ 75%]
+pytrec_eval_tests.py::PyTrecEvalUnitTest::test_ndcg_cut PASSED           [ 87%]
 pytrec_eval_tests.py::PyTrecEvalUnitTest::test_nicknames PASSED          [100%]
 
-==================== 7 passed, 10 subtests passed in 0.80s =====================
+==================== 8 passed, 10 subtests passed in 0.92s =====================

@@ -26,18 +26,21 @@
 - Zero the whole end marker (`memset(&pairs[n], 0, sizeof(PairT))`), not just `docno`. trec_eval then sees relevance 0 for an empty qrels list. The per-query result is well-defined: every measure is 0, as for a query with no relevant documents, and later queries are unaffected. This works with the current trec_eval submodule.
 - Check the return value of `calc_meas`. On `UNDEF`, raise `RuntimeError("trec_eval failed to compute measure <m> for query <q>.")` instead of returning whatever is left in the buffers. The existing cleanup still runs (`print_final_and_cleanup_meas`, `builder.cleanup`, `te_form_res_rels_cleanup`), so the evaluator can still be used afterwards.
   - An existing case that silently gave wrong numbers is `{'q1': {'d1': 10**12}, 'q2': {'d1': 1}}`. On 0.5.10, `q2` scores `P_1 = 0, ndcg = 0` instead of 1. It now raises.
+  - One exception is kept on purpose: an **empty ranking** (`{'q1': {}}`). trec_eval's `te_chk_and_malloc` returns NULL for a request of 0 items if nothing has been allocated yet, so the very first evaluation in a process reports `UNDEF` for it. After any earlier evaluation it "succeeds", because it reuses a freed pointer. To avoid turning a common input into an exception, `UNDEF` for a query with 0 retrieved documents keeps the old result (all zeros).
+  - Side effect of this trec_eval quirk on 0.5.10 (see `repro/outputs/empty_ranking.txt`): `num_rel` for an empty ranking is 0 on the first call in a process and 2 on later calls. The trec_eval PR fixes that too; after a submodule bump the exception can be removed.
 - The Python-level filter from 0.5.8 is unchanged. Public API results are identical to 0.5.10.
 
 ## Tests
 
 - `test_empty_qrels_c_extension`: calls `pytrec_eval_ext.RelevanceEvaluator` with `{"q2": {}}` between normal queries. Each run is a fresh interpreter (`subprocess`), for `PYTHONHASHSEED=0..7`. There are also two glibc runs with `MALLOC_PERTURB_=1` and `MALLOC_PERTURB_=128`, both with `GLIBC_TUNABLES=glibc.malloc.tcache_count=0`. Tcache allocations are not perturbed, so the tcache has to be off for the fill to reach the marker; this makes the bug deterministic on glibc. The test asserts exact per-query values. Other platforms ignore these variables and still exercise the seeds.
 - `test_failed_measure_raises`: the `10**12` case above raises `RuntimeError`, and the evaluator still works afterwards.
+- `test_empty_ranking_in_fresh_process`: an empty ranking as the first evaluation in a fresh interpreter does not raise.
 
 Results:
 
 ```
-master (af2270d):  11 failed, 6 passed   (all 10 subtests + test_failed_measure_raises)
-this branch:       7 passed, 10 subtests passed in 0.80s
+master (af2270d):  11 failed, 7 passed   (all 10 subtests + test_failed_measure_raises)
+this branch:       8 passed, 10 subtests passed in 0.92s
 ```
 
 Sweep of the reporter's file from mteb#3030 (78 queries, one empty), calling the C extension directly, PYTHONHASHSEED=0..200:
@@ -53,9 +56,12 @@ Through the public API (empty query dropped), both give 1 distinct result: NDCG@
 
 A qrels dict whose judgments are **all <= -2**, e.g. `{'q2': {'d1': -2}}`, still segfaults **through the public API**, on 0.5.10 and on this branch. `max_rel + 1` is negative and the `memset` gets a negative size. The empty-dict filter doesn't catch it, and a fix in the extension would only duplicate trec_eval logic. The fix belongs in trec_eval, and I've sent it upstream (usnistgov/trec_eval PR: "Fix te_form_res_rels crash/stale values for topics with no non-negative judgments"). That PR also:
 - makes the per-query cache robust to errors;
-- resets `te_chk_and_malloc`'s bound when `malloc` fails.
+- resets `te_chk_and_malloc`'s bound when `malloc` fails;
+- makes `te_chk_and_malloc` return usable space for a request of 0 items, which fixes the empty-ranking case above.
 
-I built this branch against that trec_eval change. The new tests pass, and the all-negative case returns `q2: P_1 = 0, ndcg = 0` with neighbours unaffected. The existing `test_nicknames` fails against trec_eval master, as it does without this PR; that is the TE10 measure-list change that #13 handles. **Once the trec_eval PR is merged, the submodule should be bumped** (it could go in with #13), and a public-API test for all-negative qrels can be added then.
+I built this branch against that trec_eval change. The new tests pass, the all-negative case returns `q2: P_1 = 0, ndcg = 0` with neighbours unaffected, and an empty ranking gets `num_rel = 2` on the first call.
+
+The existing `test_nicknames` fails against trec_eval master because TE10 adds measures (`unj_*`, `rbp`, `rbp_resid`) to `all_trec`; that is what #13 handles. For comparison, unpatched pytrec_eval against unpatched trec_eval master **segfaults** in that test. **Once the trec_eval PR is merged, the submodule should be bumped** (it could go in with #13), and a public-API test for all-negative qrels can be added then.
 
 ## Notes
 

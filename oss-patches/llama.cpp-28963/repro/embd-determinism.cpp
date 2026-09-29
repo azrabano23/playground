@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
     std::vector<llama_token> toks(n_tok);
     uint32_t s = 12345;
     for (auto & v : embd) { s = s*1664525u + 1013904223u; v = ((s >> 8) / 16777216.0f - 0.5f) * 0.05f; }
-    for (int i = 0; i < n_tok; ++i) toks[i] = 1000 + 17*i;
+    for (int i = 0; i < n_tok; ++i) toks[i] = (1000 + 17*i) % n_vocab;
 
     std::map<uint64_t, int> seen;
     for (int r = 0; r < n_runs; ++r) {

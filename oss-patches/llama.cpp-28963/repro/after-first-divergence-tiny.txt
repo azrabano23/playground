@@ -1,0 +1,4 @@
+run 0 inp_pos (20 = 4 sections x 5 tokens): | 0 1 2 3 4 | 0 0 0 0 0 | 0 0 0 0 0 | 0 0 0 0 0
+run 1 inp_pos (20 = 4 sections x 5 tokens): | 0 1 2 3 4 | 0 0 0 0 0 | 0 0 0 0 0 | 0 0 0 0 0
+(ignored: #0 node_0 = GET_ROWS(token_embd.weight, inp_tokens) differs, unselected token branch)
+all 131 evaluated tensors bitwise identical across the two runs
