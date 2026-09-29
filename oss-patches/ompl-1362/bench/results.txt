@@ -56,3 +56,131 @@ distance():    3.87 us/call
 interpolate(): 3.87 us/call
 
 ### after: owen_bench 100000 2000 3 1 0.5235987755982988
+pairs=100000 bounds=[-3,3]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 2111  (2.111%), exceptions: 0
+  category H:    121 pairs,      0 failures (0.00%)
+  category L:  82900 pairs,      0 failures (0.00%)
+  category M:  16979 pairs,   2111 failures (12.43%)
+returned paths with endpoint error > 1e-5: 0 (max error 2.72e-11)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 73 of 2111 (medium family 73, helix family 0)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 3.95 turn radii
+reference: 2000 pairs (290 non-low-altitude, 41 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 0.448  median 0  p99 3.96e-16  >1e-6: 1
+relative gap |distance - ref|/ref, non-low:  max 0.448  median 0  p99 5.71e-16  >1e-6: 1
+distance():    9.33 us/call
+  distance(), category L: 0.84 us/call
+  distance(), category M: 45.35 us/call
+  distance(), category H: 5.33 us/call
+interpolate(): 9.01 us/call
+
+### before: owen_bench 100000 2000 100 1 0.5235987755982988
+pairs=100000 bounds=[-100,100]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 6426  (6.426%), exceptions: 0
+  category H:  47736 pairs,   6418 failures (13.44%)
+  category L:  49747 pairs,      0 failures (0.00%)
+  category M:   2517 pairs,      8 failures (0.32%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.43e-10)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 2999 of 3000 (medium family 2, helix family 2997)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 2.67 turn radii
+reference: 2000 pairs (989 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 2.6  median 0  p99 0.679  >1e-6: 117
+relative gap |distance - ref|/ref, non-low:  max 2.6  median 1.45e-16  p99 0.937  >1e-6: 117
+distance():    1.92 us/call
+  distance(), category L: 0.46 us/call
+  distance(), category M: 5.70 us/call
+  distance(), category H: 2.81 us/call
+interpolate(): 2.21 us/call
+
+### after: owen_bench 100000 2000 100 1 0.5235987755982988
+pairs=100000 bounds=[-100,100]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 1  (0.001%), exceptions: 0
+  category H:  47736 pairs,      0 failures (0.00%)
+  category L:  49747 pairs,      0 failures (0.00%)
+  category M:   2517 pairs,      1 failures (0.04%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.43e-10)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 0 of 1 (medium family 0, helix family 0)
+  the others have no Owen-type solution at all; largest horizontal distance among them: 2.67 turn radii
+reference: 2000 pairs (989 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 8e-16  median 0  p99 3.45e-16  >1e-6: 0
+relative gap |distance - ref|/ref, non-low:  max 8e-16  median 0  p99 3.92e-16  >1e-6: 0
+distance():    1.77 us/call
+  distance(), category L: 0.39 us/call
+  distance(), category M: 10.43 us/call
+  distance(), category H: 2.54 us/call
+interpolate(): 2.01 us/call
+
+### before: owen_bench 100000 2000 1000 1 0.5235987755982988
+pairs=100000 bounds=[-1000,1000]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 4945  (4.945%), exceptions: 0
+  category H:  50701 pairs,   4945 failures (9.75%)
+  category L:  49063 pairs,      0 failures (0.00%)
+  category M:    236 pairs,      0 failures (0.00%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.45e-09)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 3000 of 3000 (medium family 0, helix family 3000)
+reference: 2000 pairs (1014 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 11.8  median 0  p99 3.66  >1e-6: 105
+relative gap |distance - ref|/ref, non-low:  max 11.8  median 1.51e-16  p99 4.84  >1e-6: 105
+distance():    1.27 us/call
+  distance(), category L: 0.53 us/call
+  distance(), category M: 6.96 us/call
+  distance(), category H: 2.95 us/call
+interpolate(): 1.68 us/call
+
+### after: owen_bench 100000 2000 1000 1 0.5235987755982988
+pairs=100000 bounds=[-1000,1000]^3 rho=1 maxPitch=0.523599 seed=1
+failures (no path or exception): 0  (0.000%), exceptions: 0
+  category H:  50701 pairs,      0 failures (0.00%)
+  category L:  49063 pairs,      0 failures (0.00%)
+  category M:    236 pairs,      0 failures (0.00%)
+returned paths with endpoint error > 1e-5: 0 (max error 7.45e-09)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 0 of 0 (medium family 0, helix family 0)
+reference: 2000 pairs (1014 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 4.35e-16  median 0  p99 3.21e-16  >1e-6: 0
+relative gap |distance - ref|/ref, non-low:  max 4.25e-16  median 0  p99 3.42e-16  >1e-6: 0
+distance():    1.29 us/call
+  distance(), category L: 0.44 us/call
+  distance(), category M: 4.94 us/call
+  distance(), category H: 1.63 us/call
+interpolate(): 1.38 us/call
+
+### before: owen_bench 100000 2000 100 1 0.2617993877991494
+pairs=100000 bounds=[-100,100]^3 rho=1 maxPitch=0.261799 seed=1
+failures (no path or exception): 17458  (17.458%), exceptions: 0
+  category H:  72419 pairs,  17456 failures (24.10%)
+  category L:  26141 pairs,      0 failures (0.00%)
+  category M:   1440 pairs,      2 failures (0.14%)
+returned paths with endpoint error > 1e-5: 0 (max error 1.51e-09)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 3000 of 3000 (medium family 0, helix family 3000)
+reference: 2000 pairs (1465 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 1.23  median 1.62e-16  p99 0.576  >1e-6: 338
+relative gap |distance - ref|/ref, non-low:  max 1.23  median 1.03e-11  p99 0.646  >1e-6: 338
+distance():    2.85 us/call
+  distance(), category L: 0.84 us/call
+  distance(), category M: 8.38 us/call
+  distance(), category H: 3.09 us/call
+interpolate(): 3.19 us/call
+
+### after: owen_bench 100000 2000 100 1 0.2617993877991494
+pairs=100000 bounds=[-100,100]^3 rho=1 maxPitch=0.261799 seed=1
+failures (no path or exception): 0  (0.000%), exceptions: 0
+  category H:  72419 pairs,      0 failures (0.00%)
+  category L:  26141 pairs,      0 failures (0.00%)
+  category M:   1440 pairs,      0 failures (0.00%)
+returned paths with endpoint error > 1e-5: 0 (max error 1.51e-09)
+returned paths violating radius/pitch limits: 0
+failed pairs (first 3000 at most) for which brute force finds a path: 0 of 0 (medium family 0, helix family 0)
+reference: 2000 pairs (1465 non-low-altitude, 0 with no feasible path found by brute force)
+relative gap |distance - ref|/ref, all:      max 9.41e-16  median 0  p99 3.9e-16  >1e-6: 0
+relative gap |distance - ref|/ref, non-low:  max 9.41e-16  median 0  p99 3.99e-16  >1e-6: 0
+distance():    2.14 us/call
+  distance(), category L: 0.97 us/call
+  distance(), category M: 10.71 us/call
+  distance(), category H: 2.23 us/call
+interpolate(): 2.54 us/call
+
