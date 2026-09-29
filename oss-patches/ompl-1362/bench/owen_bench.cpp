@@ -28,6 +28,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <map>
 #include <string>
@@ -278,6 +279,8 @@ int main(int argc, char **argv)
     std::vector<char> category(numPairs);
     double maxEndErr = 0.;
     ob::State *tmp = space->allocState();
+    // optionally write the returned paths to a file (to compare the before/after geometry)
+    FILE *dump = std::getenv("OWEN_DUMP") ? std::fopen(std::getenv("OWEN_DUMP"), "w") : nullptr;
     for (int i = 0; i < numPairs; ++i)
     {
         auto *s1 = from[i]->as<ob::OwenStateSpace::StateType>();
@@ -308,6 +311,9 @@ int main(int argc, char **argv)
             catFail[cat]++;
             continue;
         }
+        if (dump)
+            std::fprintf(dump, "%d %c %.12g %u %.12g %.12g\n", i, path->category(), path->turnRadius_, path->numTurns_,
+                         path->phi_, path->length());
         // Does the returned path really end at the goal?
         space->interpolate(from[i], to[i], 1. - 1e-12, *path, tmp);
         auto *e = tmp->as<ob::OwenStateSpace::StateType>();
@@ -322,6 +328,8 @@ int main(int argc, char **argv)
             ++badConstraint;
     }
 
+    if (dump)
+        std::fclose(dump);
     std::printf("pairs=%d bounds=[-%g,%g]^3 rho=%g maxPitch=%g seed=%u\n", numPairs, half, half, rho, maxPitch,
                 seed);
     std::printf("failures (no path or exception): %d  (%.3f%%), exceptions: %d\n", fails, 100. * fails / numPairs,
