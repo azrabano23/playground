@@ -1,0 +1,96 @@
+From 41fad0035d894f4db5cf395b85d4c8d05ae9c89e Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 02:04:35 +0000
+Subject: [PATCH] BUG: Stop AbsorbingLS.fit from accumulating df_model across
+ calls
+
+fit() added the number of regressors to self._num_params on every call,
+while the absorbed parameter count is only computed on the first fit.
+Refitting the same model (for example with a different cov_type)
+therefore increased df_model and reduced df_resid by the number of
+regressors each time, which changed debiased p-values, the F-statistic
+degrees of freedom and the adjusted R-squared.
+
+Keep _num_params as the number of absorbed parameters and add the
+number of estimated regressors locally.
+---
+ linearmodels/iv/absorbing.py            |  6 +++---
+ linearmodels/tests/iv/test_absorbing.py | 27 +++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/linearmodels/iv/absorbing.py b/linearmodels/iv/absorbing.py
+index 9ce0751..2d45547 100644
+--- a/linearmodels/iv/absorbing.py
++++ b/linearmodels/iv/absorbing.py
+@@ -733,6 +733,7 @@ class AbsorbingLS:
+         self._has_constant = False
+         self._has_constant_exog = self._check_constant()
+         self._constant_absorbed = False
++        # Number of absorbed parameters; the regressors are added in fit
+         self._num_params = 0
+         self._regressors: sp.csc_matrix | None = None
+         self._regressors_hash: tuple[tuple[str, ...], ...] | None = None
+@@ -1100,7 +1101,6 @@ class AbsorbingLS:
+             params = empty((0, 1))
+         else:
+             params = lstsq(exog_resid, dep_resid, rcond=None)[0]
+-            self._num_params += exog_resid.shape[1]
+ 
+         cov_estimator = COVARIANCE_ESTIMATORS[cov_type]
+         cov_config["debiased"] = debiased
+@@ -1114,7 +1114,7 @@ class AbsorbingLS:
+         results = {"kappa": 0.0, "liml_kappa": 0.0}
+         pe = self._post_estimation(params, cov_estimator_inst, cov_type)
+         results.update(pe)
+-        results["df_model"] = self._num_params
++        results["df_model"] = self._num_params + params.shape[0]
+ 
+         return AbsorbingLSResults(results, self)
+ 
+@@ -1174,7 +1174,7 @@ class AbsorbingLS:
+         const_loc = find_constant(
+             cast("linearmodels.typing.data.Float64Array", self._exog.ndarray)
+         )
+-        resid_df = self._nobs - self._num_params
++        resid_df = self._nobs - self._num_params - params.shape[0]
+ 
+         return f_statistic(params, cov, debiased, resid_df, const_loc)
+ 
+diff --git a/linearmodels/tests/iv/test_absorbing.py b/linearmodels/tests/iv/test_absorbing.py
+index f031c02..f1f7c5a 100644
+--- a/linearmodels/tests/iv/test_absorbing.py
++++ b/linearmodels/tests/iv/test_absorbing.py
+@@ -750,3 +750,30 @@ def test_lsmr_annihilate_empty():
+     y = np.empty((1000, 0))
+     y_out = lsmr_annihilate(x, y)
+     assert y_out.shape == y.shape
++
++
++def test_refit_does_not_change_df():
++    rs = np.random.RandomState(0)
++    nobs = 200
++    x = pd.DataFrame(
++        {
++            "const": 1.0,
++            "x1": rs.standard_normal(nobs),
++            "x2": rs.standard_normal(nobs),
++        }
++    )
++    y = x.x1 + rs.standard_normal(nobs)
++    absorb = pd.DataFrame({"cat": pd.Categorical(rs.randint(0, 20, nobs))})
++    mod = AbsorbingLS(y, x, absorb=absorb)
++    first = mod.fit(cov_type="unadjusted", debiased=True)
++    # 3 regressors + 20 categories - 1 for the constant
++    assert first.df_model == 22
++    assert first.df_resid == nobs - 22
++    for cov_type in ("unadjusted", "robust"):
++        res = mod.fit(cov_type=cov_type, debiased=True)
++        assert res.df_model == first.df_model
++        assert res.df_resid == first.df_resid
++        assert res.f_statistic.df_denom == first.f_statistic.df_denom
++        assert_allclose(res.rsquared_adj, first.rsquared_adj)
++    res = mod.fit(cov_type="unadjusted", debiased=True)
++    assert_series_equal(res.pvalues, first.pvalues)
+-- 
+2.43.0
+
