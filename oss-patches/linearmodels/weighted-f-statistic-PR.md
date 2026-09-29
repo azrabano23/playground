@@ -46,8 +46,7 @@ Multiply the projection coefficient by `root_w`. It is a one-line change.
 **Tests**
 
 - Added `test_f_statistic_weighted_with_constant` in `linearmodels/tests/panel/test_panel_ols.py`, parametrized over pooled and entity effects. It compares `f_statistic` with an F-test computed directly from weighted least squares, and checks that dropping the redundant constant under entity effects gives the same value. Both cases fail on main (62.26 vs 60.96 and 105.07 vs 99.51) and pass with the fix.
-- `pytest linearmodels/tests/panel/test_pooled_ols.py test_between_ols.py test_random_effects.py test_results.py test_simulated_against_stata.py`: 656 passed, 57 skipped, 47 xfailed
-- `pytest linearmodels/tests/panel/test_panel_ols.py -k "weight or f_stat or const"`: 474 passed (a full run of `test_panel_ols.py` + `test_firstdifference_ols.py` + `test_fama_macbeth.py` got about halfway, with no failures, before my local timeout)
+- `pytest linearmodels/tests/panel`: 2992 passed, 61 skipped, 47 xfailed
 - black, isort, ruff and flake8 are clean on the changed files
 
 A related problem I noticed but left alone here: `RandomEffects` on an unbalanced panel also subtracts a scalar, but its transformed constant is `1 - theta_i`, not `root_w`. Its F-statistic is therefore slightly off too. For example, 72.02 vs 71.46 from OLS on the quasi-demeaned data. Fixing that needs the transformed constant column rather than `root_w`, so I kept it out of this change. I'm happy to follow up if that's wanted.
