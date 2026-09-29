@@ -1,8 +1,8 @@
-==7029== Memcheck, a memory error detector
-==7029== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
-==7029== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
-==7029== Command: ./build/bin/test-batch-alloc
-==7029== 
+==28145== Memcheck, a memory error detector
+==28145== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==28145== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==28145== Command: ./build/bin/test-batch-alloc
+==28145== 
 init
   rejects_n_seq_max_too_large
   rejects_n_seq_max_too_large (1 assertion(s))                                  [PASS]
@@ -57,12 +57,12 @@ compat
   embd_batch_with_mrope_positions
   embd_batch_with_mrope_positions (27 assertion(s))                             [PASS]
   embd_batch_init_mrope_pos_in_bounds
-  embd_batch_init_mrope_pos_in_bounds (26 assertion(s))                         [PASS]
+  embd_batch_init_mrope_pos_in_bounds (13 assertion(s))                         [PASS]
   token_and_embd_both_set
   token_and_embd_both_set (9 assertion(s))                                      [PASS]
   embd_row_width_override
   embd_row_width_override (6 assertion(s))                                      [PASS]
-compat (115 assertion(s))                                                       [PASS]
+compat (102 assertion(s))                                                       [PASS]
 split
   split_simple_chunks
   split_simple_chunks (26 assertion(s))                                         [PASS]
@@ -107,22 +107,22 @@ mtp_embd_width
 mtp_embd_width (7 assertion(s))                                                 [PASS]
 
 tests      : 51
-assertions : 353
+assertions : 340
 failures   : 0
 exceptions : 0
 skipped    : 0
-==7029== 
-==7029== HEAP SUMMARY:
-==7029==     in use at exit: 104 bytes in 2 blocks
-==7029==   total heap usage: 14,342 allocs, 14,340 frees, 1,420,182 bytes allocated
-==7029== 
-==7029== LEAK SUMMARY:
-==7029==    definitely lost: 0 bytes in 0 blocks
-==7029==    indirectly lost: 0 bytes in 0 blocks
-==7029==      possibly lost: 0 bytes in 0 blocks
-==7029==    still reachable: 104 bytes in 2 blocks
-==7029==         suppressed: 0 bytes in 0 blocks
-==7029== Rerun with --leak-check=full to see details of leaked memory
-==7029== 
-==7029== For lists of detected and suppressed errors, rerun with: -s
-==7029== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==28145== 
+==28145== HEAP SUMMARY:
+==28145==     in use at exit: 104 bytes in 2 blocks
+==28145==   total heap usage: 14,314 allocs, 14,312 frees, 1,418,430 bytes allocated
+==28145== 
+==28145== LEAK SUMMARY:
+==28145==    definitely lost: 0 bytes in 0 blocks
+==28145==    indirectly lost: 0 bytes in 0 blocks
+==28145==      possibly lost: 0 bytes in 0 blocks
+==28145==    still reachable: 104 bytes in 2 blocks
+==28145==         suppressed: 0 bytes in 0 blocks
+==28145== Rerun with --leak-check=full to see details of leaked memory
+==28145== 
+==28145== For lists of detected and suppressed errors, rerun with: -s
+==28145== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

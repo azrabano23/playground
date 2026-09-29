@@ -1,32 +1,32 @@
-==4486== Memcheck, a memory error detector
-==4486== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
-==4486== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
-==4486== Command: ./build/bin/test-batch-alloc
-==4486== 
-==4486== Invalid read of size 4
-==4486==    at 0x4ECBB2B: llama_batch_compat::init(llama_batch_ext&, llama_batch const&, unsigned long) (llama-batch.cpp:1286)
-==4486==    by 0x12A3BD: operator() (test-batch-alloc.cpp:973)
-==4486==    by 0x12A3BD: operator() (testing.h:145)
-==4486==    by 0x12A3BD: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
-==4486==    by 0x12A3BD: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
-==4486==    by 0x12A3BD: test_compat(testing&) (test-batch-alloc.cpp:951)
-==4486==    by 0x13BDF5: operator() (testing.h:145)
-==4486==    by 0x13BDF5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
-==4486==    by 0x13BDF5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
-==4486==    by 0x11B6D1: main (test-batch-alloc.cpp:1098)
-==4486==  Address 0x6040c4c is 0 bytes after a block of size 12 alloc'd
-==4486==    at 0x4846828: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
-==4486==    by 0x4EC55F1: llama_batch_init (llama-batch.cpp:997)
-==4486==    by 0x12A2D9: operator() (test-batch-alloc.cpp:960)
-==4486==    by 0x12A2D9: operator() (testing.h:145)
-==4486==    by 0x12A2D9: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
-==4486==    by 0x12A2D9: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
-==4486==    by 0x12A2D9: test_compat(testing&) (test-batch-alloc.cpp:951)
-==4486==    by 0x13BDF5: operator() (testing.h:145)
-==4486==    by 0x13BDF5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
-==4486==    by 0x13BDF5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
-==4486==    by 0x11B6D1: main (test-batch-alloc.cpp:1098)
-==4486== 
+==17996== Memcheck, a memory error detector
+==17996== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==17996== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==17996== Command: ./build/bin/test-batch-alloc
+==17996== 
+==17996== Invalid read of size 4
+==17996==    at 0x4ECBB2B: llama_batch_compat::init(llama_batch_ext&, llama_batch const&, unsigned long) (llama-batch.cpp:1286)
+==17996==    by 0x12A2F2: operator() (test-batch-alloc.cpp:972)
+==17996==    by 0x12A2F2: operator() (testing.h:145)
+==17996==    by 0x12A2F2: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
+==17996==    by 0x12A2F2: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
+==17996==    by 0x12A2F2: test_compat(testing&) (test-batch-alloc.cpp:951)
+==17996==    by 0x13BCE5: operator() (testing.h:145)
+==17996==    by 0x13BCE5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
+==17996==    by 0x13BCE5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
+==17996==    by 0x11B5F1: main (test-batch-alloc.cpp:1096)
+==17996==  Address 0x6040c4c is 0 bytes after a block of size 12 alloc'd
+==17996==    at 0x4846828: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==17996==    by 0x4EC55F1: llama_batch_init (llama-batch.cpp:997)
+==17996==    by 0x12A22A: operator() (test-batch-alloc.cpp:960)
+==17996==    by 0x12A22A: operator() (testing.h:145)
+==17996==    by 0x12A22A: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
+==17996==    by 0x12A22A: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
+==17996==    by 0x12A22A: test_compat(testing&) (test-batch-alloc.cpp:951)
+==17996==    by 0x13BCE5: operator() (testing.h:145)
+==17996==    by 0x13BCE5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
+==17996==    by 0x13BCE5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
+==17996==    by 0x11B5F1: main (test-batch-alloc.cpp:1096)
+==17996== 
 init
   rejects_n_seq_max_too_large
   rejects_n_seq_max_too_large (1 assertion(s))                                  [PASS]
@@ -84,15 +84,12 @@ compat
   ASSERT EQUAL FAILED : unset M-RoPE positions are zero
     expected: 0
     actual  : 80
-  ASSERT EQUAL FAILED : unset M-RoPE positions are zero
-    expected: 0
-    actual  : 80
-  embd_batch_init_mrope_pos_in_bounds (2 of 26 assertion(s) failed)             [FAIL]
+  embd_batch_init_mrope_pos_in_bounds (1 of 13 assertion(s) failed)             [FAIL]
   token_and_embd_both_set
   token_and_embd_both_set (9 assertion(s))                                      [PASS]
   embd_row_width_override
   embd_row_width_override (6 assertion(s))                                      [PASS]
-compat (2 of 115 assertion(s) failed)                                           [FAIL]
+compat (1 of 102 assertion(s) failed)                                           [FAIL]
 split
   split_simple_chunks
   split_simple_chunks (26 assertion(s))                                         [PASS]
@@ -137,22 +134,22 @@ mtp_embd_width
 mtp_embd_width (7 assertion(s))                                                 [PASS]
 
 tests      : 51
-assertions : 353
-failures   : 2
+assertions : 340
+failures   : 1
 exceptions : 0
 skipped    : 0
-==4486== 
-==4486== HEAP SUMMARY:
-==4486==     in use at exit: 104 bytes in 2 blocks
-==4486==   total heap usage: 14,344 allocs, 14,342 frees, 1,420,245 bytes allocated
-==4486== 
-==4486== LEAK SUMMARY:
-==4486==    definitely lost: 0 bytes in 0 blocks
-==4486==    indirectly lost: 0 bytes in 0 blocks
-==4486==      possibly lost: 0 bytes in 0 blocks
-==4486==    still reachable: 104 bytes in 2 blocks
-==4486==         suppressed: 0 bytes in 0 blocks
-==4486== Rerun with --leak-check=full to see details of leaked memory
-==4486== 
-==4486== For lists of detected and suppressed errors, rerun with: -s
-==4486== ERROR SUMMARY: 18 errors from 1 contexts (suppressed: 0 from 0)
+==17996== 
+==17996== HEAP SUMMARY:
+==17996==     in use at exit: 104 bytes in 2 blocks
+==17996==   total heap usage: 14,316 allocs, 14,314 frees, 1,418,493 bytes allocated
+==17996== 
+==17996== LEAK SUMMARY:
+==17996==    definitely lost: 0 bytes in 0 blocks
+==17996==    indirectly lost: 0 bytes in 0 blocks
+==17996==      possibly lost: 0 bytes in 0 blocks
+==17996==    still reachable: 104 bytes in 2 blocks
+==17996==         suppressed: 0 bytes in 0 blocks
+==17996== Rerun with --leak-check=full to see details of leaked memory
+==17996== 
+==17996== For lists of detected and suppressed errors, rerun with: -s
+==17996== ERROR SUMMARY: 9 errors from 1 contexts (suppressed: 0 from 0)

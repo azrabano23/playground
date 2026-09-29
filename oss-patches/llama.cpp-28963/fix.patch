@@ -1,0 +1,116 @@
+From 0cb0081069a45424ad0abb4f71d16d719e4f32eb Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 00:16:42 +0000
+Subject: [PATCH] llama : size llama_batch_init pos for M-RoPE embd batches
+
+For embedding batches on M-RoPE models (MROPE/IMROPE), llama_decode()
+reads 4 positions per token from llama_batch.pos, section-major
+(pos[j*n_tokens + i]), but llama_batch_init() allocated only n_tokens
+positions. A caller that sets pos[i] as for a token batch made decode
+read past the end of the array, so the extra RoPE sections got heap
+garbage and the output of the attention layers changed between runs.
+
+Allocate 4*n_tokens positions for embd batches and zero them, and
+document the position layout in llama.h.
+
+Fixes #28963
+---
+ include/llama.h            |  5 ++++-
+ src/llama-batch.cpp        |  8 +++++++-
+ tests/test-batch-alloc.cpp | 34 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/include/llama.h b/include/llama.h
+index e808fa9..72c3493 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -252,6 +252,8 @@ extern "C" {
+     // - embd   : token embeddings (i.e. float vector of size n_embd) (used when token is NULL)
+     // - pos    : the positions of the respective token in the sequence
+     //            (if set to NULL, the token position will be tracked automatically by llama_encode/llama_decode)
++    //            for embd batches on M-RoPE models (llama_model_rope_type() is LLAMA_ROPE_TYPE_MROPE or LLAMA_ROPE_TYPE_IMROPE),
++    //            pos must have size of 4*n_tokens, section-major: pos[j*n_tokens + i] is position j of token i
+     // - seq_id : the sequence to which the respective token belongs
+     //            (if set to NULL, the sequence ID will be assumed to be 0)
+     // - logits : if zero, the logits (and/or the embeddings) for the respective token will not be output
+@@ -968,7 +970,8 @@ extern "C" {
+     // If embd != 0, llama_batch.embd will be allocated with size of n_tokens * embd * sizeof(float)
+     // Otherwise, llama_batch.token will be allocated to store n_tokens llama_token
+     // The rest of the llama_batch members are allocated with size n_tokens
+-    // All members are left uninitialized
++    // If embd != 0, llama_batch.pos is allocated with size 4*n_tokens to fit M-RoPE positions and is zero-initialized
++    // All other members are left uninitialized
+     LLAMA_API struct llama_batch llama_batch_init(
+             int32_t n_tokens,
+             int32_t embd,
+diff --git a/src/llama-batch.cpp b/src/llama-batch.cpp
+index 89a1f3f..7325377 100644
+--- a/src/llama-batch.cpp
++++ b/src/llama-batch.cpp
+@@ -990,11 +990,17 @@ struct llama_batch llama_batch_init(int32_t n_tokens_alloc, int32_t embd, int32_
+ 
+     if (embd) {
+         batch.embd = (float *) malloc(sizeof(float) * n_tokens_alloc * embd);
++
++        // on M-RoPE models, llama_decode() reads GGML_MROPE_SECTIONS positions per embedding,
++        // stored section-major: pos[j*n_tokens + i] (see llama_batch_compat::init)
++        // allocate room for all of them and zero them, so that a caller that sets only pos[i]
++        // does not make llama_decode() read past the end of the array or read uninitialized memory
++        batch.pos = (llama_pos *) calloc((size_t) n_tokens_alloc * GGML_MROPE_SECTIONS, sizeof(llama_pos));
+     } else {
+         batch.token = (llama_token *) malloc(sizeof(llama_token) * n_tokens_alloc);
++        batch.pos   = (llama_pos *)   malloc(sizeof(llama_pos)   * n_tokens_alloc);
+     }
+ 
+-    batch.pos      = (llama_pos *)     malloc(sizeof(llama_pos)      * n_tokens_alloc);
+     batch.n_seq_id = (int32_t *)       malloc(sizeof(int32_t)        * n_tokens_alloc);
+     batch.seq_id   = (llama_seq_id **) malloc(sizeof(llama_seq_id *) * (n_tokens_alloc + 1));
+     for (int i = 0; i < n_tokens_alloc; ++i) {
+diff --git a/tests/test-batch-alloc.cpp b/tests/test-batch-alloc.cpp
+index ad186c6..2cff08c 100644
+--- a/tests/test-batch-alloc.cpp
++++ b/tests/test-batch-alloc.cpp
+@@ -948,6 +948,40 @@ static void test_compat(testing & t) {
+         }
+     });
+ 
++    t.test("embd_batch_init_mrope_pos_in_bounds", [&](testing & t) {
++        // ref: https://github.com/ggml-org/llama.cpp/issues/28963
++        // an embd batch from llama_batch_init() where the caller only sets pos[i], as for a token batch
++        // on M-RoPE models, positions are read section-major (pos[j*n_tokens + i]), so the batch must have room
++        // for all of them and the positions that were not set must be deterministic (zero)
++        const uint32_t n_pos    = 4;
++        const uint32_t n_embd   = 2;
++        const int32_t  n_tokens = 3;
++
++        llama_batch lb = llama_batch_init(n_tokens, n_embd, 1);
++        lb.n_tokens = n_tokens;
++        for (int32_t i = 0; i < n_tokens; ++i) {
++            lb.embd[i*n_embd + 0] = 100.0f*i;
++            lb.embd[i*n_embd + 1] = 100.0f*i + 1;
++            lb.pos[i]       = 10 + i;
++            lb.n_seq_id[i]  = 1;
++            lb.seq_id[i][0] = 0;
++            lb.logits[i]    = 1;
++        }
++
++        batch_builder bb(n_embd, nullptr, 4, n_pos);
++        llama_batch_compat::init(bb.b, lb);
++
++        t.assert_equal((size_t) n_tokens, bb.b.tokens.size());
++        for (int32_t i = 0; i < n_tokens; ++i) {
++            t.assert_equal(10 + i, bb.b.tokens[i].pos[0]);
++            for (uint32_t j = 1; j < n_pos; ++j) {
++                t.assert_equal("unset M-RoPE positions are zero", 0, bb.b.tokens[i].pos[j]);
++            }
++        }
++
++        llama_batch_free(lb);
++    });
++
+     t.test("token_and_embd_both_set", [&](testing & t) {
+         // e.g. MTP hook batches
+         llama_token token[2] = { 5, 6 };
+-- 
+2.43.0
+

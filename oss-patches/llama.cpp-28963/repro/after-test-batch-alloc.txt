@@ -52,12 +52,12 @@ compat
   embd_batch_with_mrope_positions
   embd_batch_with_mrope_positions (27 assertion(s))                             [PASS]
   embd_batch_init_mrope_pos_in_bounds
-  embd_batch_init_mrope_pos_in_bounds (26 assertion(s))                         [PASS]
+  embd_batch_init_mrope_pos_in_bounds (13 assertion(s))                         [PASS]
   token_and_embd_both_set
   token_and_embd_both_set (9 assertion(s))                                      [PASS]
   embd_row_width_override
   embd_row_width_override (6 assertion(s))                                      [PASS]
-compat (115 assertion(s))                                                       [PASS]
+compat (102 assertion(s))                                                       [PASS]
 split
   split_simple_chunks
   split_simple_chunks (26 assertion(s))                                         [PASS]
@@ -102,7 +102,7 @@ mtp_embd_width
 mtp_embd_width (7 assertion(s))                                                 [PASS]
 
 tests      : 51
-assertions : 353
+assertions : 340
 failures   : 0
 exceptions : 0
 skipped    : 0

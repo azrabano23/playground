@@ -1,0 +1,54 @@
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf tokens 5 6 4 n
+run  0: hash 6c3068d36d49027c  logit[0]=9.89476585
+run  1: hash 6c3068d36d49027c  logit[0]=9.89476585
+run  2: hash 6c3068d36d49027c  logit[0]=9.89476585
+run  3: hash 6c3068d36d49027c  logit[0]=9.89476585
+run  4: hash 6c3068d36d49027c  logit[0]=9.89476585
+run  5: hash 6c3068d36d49027c  logit[0]=9.89476585
+mode=tokens pos=n n_tokens=5 runs=6 distinct_hashes=1
+
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf embd 1 6 4 n
+run  0: hash 6a48d498bd134a06  logit[0]=7.69985199
+run  1: hash 6a48d498bd134a06  logit[0]=7.69985199
+run  2: hash 6a48d498bd134a06  logit[0]=7.69985199
+run  3: hash 6a48d498bd134a06  logit[0]=7.69985199
+run  4: hash 6a48d498bd134a06  logit[0]=7.69985199
+run  5: hash 6a48d498bd134a06  logit[0]=7.69985199
+mode=embd pos=n n_tokens=1 runs=6 distinct_hashes=1
+
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf embd 5 6 4 n
+run  0: hash 1bc26b7ef2523f2e  logit[0]=8.80338001
+run  1: hash c5856fabd63e7d16  logit[0]=7.8531146
+run  2: hash f89b9b2e4bc9b25a  logit[0]=8.11337757
+run  3: hash 61d7e1114795461c  logit[0]=7.94557667
+run  4: hash 38c397c035fa1df2  logit[0]=9.09698486
+run  5: hash afecf787decaba87  logit[0]=8.70507145
+mode=embd pos=n n_tokens=5 runs=6 distinct_hashes=6
+
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf embd 5 6 1 n
+run  0: hash 1bc26b7ef2523f2e  logit[0]=8.80338001
+run  1: hash e5c4e91501006e03  logit[0]=7.53155708
+run  2: hash f73a3d2dd5e0d33a  logit[0]=8.20657349
+run  3: hash 3a357ed3056cf480  logit[0]=7.94908476
+run  4: hash 303ed67c63fffa29  logit[0]=8.60723305
+run  5: hash 7fb0721ed46d099e  logit[0]=6.47043228
+mode=embd pos=n n_tokens=5 runs=6 distinct_hashes=6
+
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf embd 5 6 4 full
+run  0: hash 9191f44ecfccc269  logit[0]=9.92877674
+run  1: hash 9191f44ecfccc269  logit[0]=9.92877674
+run  2: hash 9191f44ecfccc269  logit[0]=9.92877674
+run  3: hash 9191f44ecfccc269  logit[0]=9.92877674
+run  4: hash 9191f44ecfccc269  logit[0]=9.92877674
+run  5: hash 9191f44ecfccc269  logit[0]=9.92877674
+mode=embd pos=full n_tokens=5 runs=6 distinct_hashes=1
+
+$ embd-determinism Qwen3.5-0.8B-Q8_0.gguf embd 5 6 4 null
+run  0: hash 44c56776a20cba41  logit[0]=9.33863544
+run  1: hash 44c56776a20cba41  logit[0]=9.33863544
+run  2: hash 44c56776a20cba41  logit[0]=9.33863544
+run  3: hash 44c56776a20cba41  logit[0]=9.33863544
+run  4: hash 44c56776a20cba41  logit[0]=9.33863544
+run  5: hash 44c56776a20cba41  logit[0]=9.33863544
+mode=embd pos=null n_tokens=5 runs=6 distinct_hashes=1
+
