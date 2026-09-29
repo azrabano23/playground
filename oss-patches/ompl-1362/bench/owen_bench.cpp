@@ -208,7 +208,9 @@ namespace
         }
 
         // High altitude: k full helix loops + Dubins word w at radius r >= rho.
-        const int J = (int)std::floor(H / (TWOPI * rho));
+        // A path that is feasible with turn radius r >= rho is also feasible with radius rho, so its horizontal
+        // length is at least len0; with j loops of radius >= rho it is at least len0 + 2*pi*j*rho.
+        const int J = (int)std::floor((H - len0) / (TWOPI * rho));
         const int N = 3000;
         const double rMax = std::max(1000. * rho, 10. * H);
         for (int j = J; j >= 0; --j)
