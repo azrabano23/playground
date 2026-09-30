@@ -1,0 +1,93 @@
+Azra Bano 
+[phone in private doc] | azra.bano@rutgers.edu | linkedin.com/in/meetazrabano (9.8K+ Followers) | GitHub (85+ Public Repos) | GitLab 
+Education 
+ 
+Rutgers University School of Engineering | Bachelors of Science in Engineering (B.S.)
+
+
+
+New Brunswick, NJ 
+Majors: Electrical & Computer Engineering, Mathematics | Minors: Computer & Data Science
+
+
+ 
+June 2024-Aug 2027
+
+Professional Experience
+
+Software Engineering Intern | Google, YouTube Ads Infrastructure
+
+
+
+
+Mountain View, California
+Skills: C++ Checkpoint Recovery, Distributed Systems, Protobufs, CNS, RaphtQ, Spanner, Data Pipelines
+
+May 2026-Aug 2026 
+• Reduced distributed server recovery latency by 99.7% (from 60 minutes to 10 seconds) across 100 leaf servers by replacing a legacy RPC model with a 
+push-based event-driven queue capable of supporting throughputs of up to 2B edges per second. 
+ 
+1st in ML Research/Worldsims, Startup School Attendee (Selected from 30K+ globally) | Y Combinator  
+San Francisco, California
+Skills: Multi-agent RL, safe RL/control barrier functions, reward shaping & curriculum learning, Deep Sets, JAX, distributed training, Python, evals
+• Built Nomos, multi-agent RL system (MAPPO, CTDE, JAX) training 172 shared-parameter agents to coordinate driverless traffic on SF OSM road 
+graph, achieving zero-crash fleet behavior via dual Lagrangian constrained PPO and Higher-Order Control Barrier function (safety filter) @ YC Hack. 
+1st Nationally @ Horizons Competition [Lead ML Engineer], SWARM Robotics Project [SWE Lead] | NASA
+Arlington, Virginia
+Skills: Python, C++, Java, Systems Design, Time-Series Modeling, Distributed & Cloud-Native Architecture, Linux
+May 2025-October 2025
+• Led systems architecture and software development for InnerSolace, a high-throughput AI circadian rhythm modeling platform simulating 100+ 
+mission-day scenarios across orbital and polar environments, processing thousands of time-series biometric and light-cycle data points per day.
+Skills: Multi-Agents, Autonomous Coordination, Swarm Robotics, RL/ML, Distributed Systems, C++, Python 
+November 2025-May 2026
+• Lead development of decentralized, fault-tolerant multi-agent software for heterogeneous robotic swarm, enabling autonomous coordination.
+
+Applied Software Engineering & Quantum ML Researcher | Columbia University Center for AI, IEEE, INNS  New York City, New York
+Publication: https://arxiv.org/abs/2601.18710v1, Skills: Quantum ML, Optimization, Computational Oncology, Python March 2025-May 2026
+• Developed and evaluated quantum-inspired and classical optimization methods for acute myeloid leukemia (AML) blood cell classification 
+(under noisy, high-variance biological data), comparing accuracy, convergence behavior, and runtime across 4 model families and 5 dataset scales. 
+Software Engineering & Extended Reality Intern | Wireless Information Network Laboratory (WINLAB)
+North Brunswick, New Jersey
+Skills: C++, Python, Java, Linux, Distributed Systems, Asynchronous Systems, Docker, CI/CD, REST APIs 
+May 2025-September 2025
+• Designed and implemented real-time simulation and telemetry infrastructure, building asynchronous data pipelines, logging, and distributed tracing.  
+Software Engineering Emerging Leader & First-Year Team | Goldman Sachs 
+
+
+
+Dallas, Texas
+Skills: Low-Latency Data Pipelines, Performance & Reliability Engineering, Production Systems Design
+
+Sept. 2024-May 2026
+• Prototyped backend for low-latency, high-throughput data pipelines, evaluating performance & reliability tradeoffs in production-grade systems. 
+Technical Lead | National Science Foundation (NSF), Princeton University 
+
+
+
+Princeton, New Jersey 
+Skills: App Design, Backend Services, Systems Reliability, User-Centered Engineering, Data-Driven Iteration
+March 2025-November 2025
+• Developed cross-platform system with backend services; using insights from 40+ user interviews to improve system reliability in financial systems. 
+Projects (Secured $5.5M across sponsors including NEC Labs, Verizon, Qualcomm, Robert Wood Johnson Hospital, Columbia CS3, Rutgers)
+
+interp: Built mechanistic-interpretability toolkit (logit lens, direct logit attribution, SAE features, steering) packed as CLI + coding agent skill; independently 
+reproduces published GPT-2 circuits (IOI name-mover heads & induction heads) with casual patching recover ~~ 1.0. 
+evalkit: Built statistically rigorous LLM-eval library: calibrated bootstrap CIs (90% nominal → 90% empirical coverage), unbiased pass@k matching the analytic 
+estimator exactly, exact McNemar significance tests, position-bias detection for LLM as-judge & n-gram contamination checks. 
+MedCalc-Bench x UK AISI Inspect: Ported MedCalc-Bench (NeurIPS 2024) to the UK AI Security Institute’s Inspect framework with tamper-safe scoring 
+(removed reference implementations eval() of model output); contributed upstream to inspect_evals (PR #1765)
+neuroloop: Designed a typed dataflow framework for closed-loop neuromodulation that statically rejects pipelines at graph-build time if declared worst-case 
+execution times blow the latency budget or a stimulation-safety envelope is infeasible; validated in a deterministic closed-loop simulator.
+cross-sae: Built FDR-controlled (Model-X knockoff) sparse-autoencoder feature matcher across vision transformers and human visual cortex; reported a null on 
+the real model↔brain join (0 matches, permutation p = 1.0) and diagnosed it with RSA — raw ViT↔EEG do align (ρ = 0.155, p = 0.0005), and the attenuation is 
+a capacity, not sparsity, effect (SAE ≥ dense PCA at matched capacity). 
+AeroBin (Verizon Smart Campus National Winner, 3 multi-city / campus pilots): Multi-sensor, edge-compute system for deployment in smart waste infra.
+EndoDetect: Designed multimodal ML pipelines with medical imaging, creating models and signal extraction to reduce endometriosis diagnosis time 
+Founder, President: Grey Matter Society (AI & Cognitive Science Education Organization) | Yale School of Medicine | 150+ Chapters Globally 
+
+LINK mailto:azra.bano@rutgers.edu
+LINK http://linkedin.com/in/meetazrabano
+LINK https://github.com/azrabano23
+LINK https://gitlab.orbit-lab.org/azrabano
+LINK https://arxiv.org/abs/2601.18710v1
+LINK https://medicine.yale.edu/neurology/education/grey-matter-project/

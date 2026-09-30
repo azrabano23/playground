@@ -1,0 +1,109 @@
+Azra Bano 
+[phone in private doc] | azra.bano@rutgers.edu | linkedin.com/in/meetazrabano (9.5K Followers) | GitHub | GitLab
+AI/ML Infrastructure Engineer specializing in high-throughput, low-latency distributed systems and multimodal model evaluation. 
+Education 
+ 
+Rutgers University School of Engineering | Bachelors of Science in Engineering (B.S.)
+
+
+
+New Brunswick, NJ 
+Majors: Electrical & Computer Engineering, Mathematics | Minors: Computer & Data Science
+
+
+ 
+June 2024-Aug 2027
+Skills: C/C#/C++, Python, SQL, Java. AI Infra: Distributed Systems, Google Spanner, Event-Driven Queues (RaphtQ), Hardware Accelerator 
+Efficiency (TPU/GPU), Low-Latency Data Ingestion, XLA Optimization. Machine Learning: JAX, PyTorch, Multimodal LLMs, RAG Pipelines
+
+Professional Experience
+
+Software Engineering Intern | Google, YouTube Ads Infrastructure
+
+
+
+
+Mountain View, California
+Skills: C++, Distributed Systems, Protobufs, CNS, RaphtQ, Spanner, High-Throughout Data Pipelines
+
+May 2026-Aug 2026 
+• Eliminated distributed server recovery latency by architecting a distributed recovery protocol using RaphtQ and Spanner, allowing forecasting 
+allocation servers to drop synchronization delays to 10 seconds. Replaced exclusive RPC model with high-throughput push-based event-driven queue.  
+ 
+1st in ML Research/Worldsims, Startup School Attendee (Selected from 30K+ globally) | Y Combinator  
+San Francisco, California
+Skills: Multi-agent RL, safe RL/control barrier functions, reward shaping & curriculum learning, Deep Sets, JAX, distributed training, Python, evals
+• Built Nomos, multi-agent RL system (MAPPO, CTDE, JAX) training 172 shared-parameter agents to coordinate driverless traffic on SF OSM road 
+graph, achieving zero-crash fleet behavior via dual Lagrangian constrained PPO and Higher-Order Control Barrier function (safety filter) @ YC Hack. 
+1st Nationally @ Horizons Competition, Lead Systems & ML Engineer, Technical Project Manager | NASA
+Arlington, Virginia
+Skills: Python, C++, Java, Systems Design, Time-Series Modeling, Distributed & Cloud-Native Architecture, Linux
+May 2025-October 2025
+• Led systems architecture and software development for InnerSolace, a high-throughput AI circadian rhythm modeling platform simulating 100+ 
+mission-day scenarios across orbital and polar environments, processing thousands of time-series biometric and light-cycle data points per day.
+
+Technical Lead | Swarm Robotics Intelligence Project (NASA)
+
+
+
+
+
+Newark, New Jersey 
+Skills: Distributed Systems Architecture, Multi-Agent Systems & Swarm Intelligence, AI-Driven Algorithms
+November 2025-Present
+• Lead development of decentralized, fault-tolerant multi-agent software for NASA-funded heterogeneous robotic swarm, enabling autonomous 
+coordination & self-assembly for lunar infrastructure construction; oversee systems architecture and deliver technical reviews to NASA stakeholders.
+
+Applied Software Engineering & Quantum ML Researcher | Columbia University Center for AI, IEEE, INNS  New York City, New York
+Publication link: https://arxiv.org/abs/2601.18710v1
+
+
+
+
+
+
+March 2025-Present
+• Developed and evaluated quantum-inspired and classical optimization methods for acute myeloid leukemia (AML) blood cell classification 
+(under noisy, high-variance biological data), comparing accuracy, convergence behavior, and runtime across 4 model families and 5 dataset scales. 
+Software Engineering & Extended Reality Intern | Wireless Information Network Laboratory (WINLAB)
+North Brunswick, New Jersey
+Skills: C++, Python, Java, Linux, Distributed Systems, Asynchronous Systems, Docker, CI/CD, REST APIs 
+May 2025-September 2025
+• Designed and implemented real-time simulation and telemetry infrastructure, building asynchronous data pipelines, structured logging, and 
+distributed tracing to support low-latency system observability while enabling system observability and fault diagnosis.  
+Software Engineering Emerging Leader & First-Year Team | Goldman Sachs 
+
+
+
+Dallas, Texas
+Skills: Low-Latency Data Pipelines, Performance & Reliability Engineering, Production Systems Design
+
+Sept. 2024-May 2026
+• Prototyped backend for low-latency, high-throughput data pipelines, evaluating performance & reliability tradeoffs in production-grade systems. 
+Technical Lead | National Science Foundation (NSF), Princeton University 
+
+
+
+Princeton, New Jersey 
+Skills: App Design, Backend Services, Systems Reliability, User-Centered Engineering, Data-Driven Iteration
+March 2025-November 2025
+• Developed cross-platform system with backend services; using insights from 40+ user interviews to improve system reliability in financial systems. 
+Projects (Secured $5.5M across sponsors including NEC, Nokia, Google, Qualcomm, Robert Wood Johnson Hospital, Nuttall Women’s Health)
+
+AeroBin (Sponsored by NEC, Nokia Google, Qualcomm): Multi-sensor, edge-compute system for deployment in smart waste systems infrastructure.
+Aurelis: Designed and implemented scalable, automated evaluation infrastructure for systematic model and LLM prompt testing.
+EndoDetect: Designed multimodal ML pipelines with medical imaging data, creating models and signal extraction to clinical decision support. 
+Leadership 
+ 
+• Founder, President: Grey Matter Society (AI & Cognitive Science Education Organization) | Yale School of Medicine | 150+ Chapters Globally 
+• Elected Official to 40K+ Students: Rutgers School of Engineering Representative | Rutgers Student Assembly (RUSA) 
+• HealthTech Lead: Sangone (Top 8 in U.S. National Hult Prize) | Led technical market validation & product development 
+
+LINK mailto:azra.bano@rutgers.edu
+LINK http://linkedin.com/in/meetazrabano
+LINK https://github.com/azrabano23
+LINK https://gitlab.orbit-lab.org/azrabano
+LINK https://arxiv.org/abs/2601.18710v1
+LINK https://medicine.yale.edu/neurology/education/grey-matter-project/
+LINK https://rusa.rutgers.edu/rusa/assembly
+LINK https://www.cellinehealth.com/
