@@ -1,0 +1,56 @@
+mujoco|linesearch-cone-kinks|Azra Bano|2026-09-29|Warn when a linesearch uses all ls_iterations.
+ompl|fix-owen-root-finding-1362|Azra Bano|2026-09-28|OwenStateSpace: solve for the path per Dubins path type (#1362)
+trec_eval|fix-form-res-rels-empty-qrels|Azra Bano|2026-09-28|te_chk_and_malloc: return usable space for a request of 0 items
+pytrec_eval|fix-empty-qrels-c-state|Azra Bano|2026-09-28|Fix garbage/stale scores for queries without judgments in the C extension
+mteb|fix/pytrec-eval-min-version|Azra Bano|2026-09-28|fix: require pytrec-eval-terrier>=0.5.8
+linearmodels|fix-631-f-pooled-robust|Azra Bano|2026-09-28|BUG: Do not report poolability F-test with robust covariance
+linearmodels|fix-absorbing-refit-df|Azra Bano|2026-09-29|BUG: Stop AbsorbingLS.fit from accumulating df_model across calls
+linearmodels|fix-weighted-f-statistic|Azra Bano|2026-09-29|BUG: Fix model F-statistic in weighted panel models with a constant
+exchange_calendars|fix-xkrx-empty-observance|Azra Bano|2026-09-28|Skip holiday observances when there are no dates
+pandas_market_calendars|fix-486-cme-carter-early-close|Azra Bano|2026-09-28|CME: treat 2025-01-09 Carter day of mourning as an early close
+pandas_market_calendars|fix-ice-carter-2025|Azra Bano|2026-09-28|ICE: keep 2025-01-09 as a trading day
+bt|fix/rebalance-over-time-cash|Azra Bano|2026-09-28|Keep cash reserve across RebalanceOverTime steps
+llama.cpp|fix-28963-embd-mrope-pos|Azra Bano|2026-09-29|llama : size llama_batch_init pos for M-RoPE embd batches
+nautilus_trader|l2-array-ladder|Azra Bano|2026-09-29|Add sorted array level storage for L2 order books
+QuantLib|fix-2776-gauss-laguerre-high-order|Azra Bano|2026-09-11|Avoid NaN from Gauss-Laguerre quadrature at high orders
+QuantLib|lets-be-rational|Azra Bano|2026-09-28|Add Jaeckel's "Let's Be Rational" Black implied standard deviation
+skypilot|fix-10481-verda-os-volume|Azra Bano|2026-09-04|[Verda] Do not send os_volume when image_id is a customized OS volume
+skypilot|fix-10588-slurm-user-scoped-cache|Azra Bano|2026-09-28|[Core] Address review of the Slurm submit-as-user cache split
+skypilot|fix-9150|Azra Bano|2026-09-04|[k8s] Make the ingress controller lookup RBAC-safe and deterministic
+warp|azrabano23/colab-verify-1810|Azra Bano|2026-08-16|Add Colab CUDA verification notebook for GH-1734 fix
+warp|azrabano23/fem-integrate-output-docs|Azra Bano|2026-09-28|Clarify integrate() output layout constraints (GH-1912)
+warp|azrabano23/fem-trimesh-flip-topology|Azra Bano|2026-08-23|Rebuild Trimesh2D after edge flips (GH-1804)
+warp|azrabano23/svd2-scaled-orthogonal|Azra Bano|2026-09-28|Avoid float16 overflow in the repeated-value svd2 adjoint (GH-1734)
+warp|fix-1910-bsr-scaled-add|Azra Bano|2026-09-04|Fix scaled BSR expression on the left of + and - (GH-1910)
+warp|fix-1912-fem-integrate-output|Azra Bano|2026-09-04|Fix fem.integrate() scalar output validation (GH-1912)
+warp|fix-1913-map-single-output-list|Azra Bano|2026-09-04|Accept a one-element output list in wp.map() (GH-1913)
+moabb|feat/nadeau-bengio-corrected-ttest|Azra Bano|2026-08-24|Add corrected resampled t-test to statistics tutorial
+statsmodels|fix-9490-sarimax-summary-seasonal-ma|Azra Bano|2026-09-04|BUG: Print seasonal MA order as an integer in SARIMAX summary
+statsmodels|fix-9538-holtwinters-seasonal-forecast|Azra Bano|2026-09-04|BUG: Use final seasonal factor in Holt-Winters forecasts
+statsmodels|fix-9556-linbin-out-of-bounds|Azra Bano|2026-09-04|BUG: Fix out-of-bounds write and dropped observations in fast_linbin
+anthropic-sdk-python|fix-1911-beta-tool-positional-only|Azra Bano|2026-09-04|fix(tools): support positional-only parameters in beta_tool
+SAELens|covariance-whitening-647|Azra Bano|2026-09-04|feat: add covariance_whitening activation normalization (#647)
+pyvene|add-electra-model|Azra Bano|2026-09-04|Register ElectraForPreTraining with the ELECTRA intervention mappings
+garak|detector-non-engagement|Azra Bano|2026-06-07|Add NonEngagement detector (#975)
+garak|fix-buff-derived-attempt-shared-state|Azra Bano|2026-09-04|Copy notes and detector_results when deriving buffed attempts
+pymavlink|fix-1033-reduce-rate-keep-oneoff-msgs|Azra Bano|2026-09-04|mavlogdump: keep one-off and burst messages when using --reduce-rate
+pymavlink|fix-796-mavparmdiff-tabs|Azra Bano|2026-09-04|mavparm: honour use_tabs for params present in only one file
+pymavlink|fix-887-cpp11-enum-prefix|Azra Bano|2026-09-04|mavgen_cpp11: fix IndexError when an enum entry is a prefix of the enum name
+MONAI|normalize-intensity-inverse|Azra Bano|2026-09-04|Make NormalizeIntensity.inverse work with nonzero=True
+helm|fix-3746|Azra Bano|2026-08-24|Add opt-in deduplication to MedDialogScenario
+helm|fix-4337|Azra Bano|2026-08-24|Fix final_number_exact_match regex extracting empty or comma-only matches
+helm|fix-4348-kpi-edgar-pred-gold-order|Azra Bano|2026-09-04|Fix swapped prediction/reference order in KPI-EDGAR metric
+helm|fix-medcalc-lab-dosage-categories|Azra Bano|2026-09-04|Score MedCalc-Bench lab and dosage categories instead of always 0
+Skills|fix-1084-boxed-first-default|Azra Bano|2026-09-04|Restore boxed-first default for relaxed answer extraction
+Skills|fix-1510-bfcl-language-categories|Azra Bano|2026-09-04|Apply BFCL Java/JavaScript preprocessing to simple_java and simple_javascript
+Skills|fix-1511-mcq-explicit-answer|Azra Bano|2026-09-04|Prefer explicit "Answer: X" line over letters inside boxed expressions
+dynamo|fix-dyn-log-parsing|Azra Bano|2026-09-04|fix(logging): treat bare DYN_LOG targets as TRACE in filter_level_mapping
+flashinfer|fix-artifacts-so-enumeration|Azra Bano|2026-09-04|fix: reject drive-qualified manifest filenames too
+scikit-survival|fix-428-uno-c-ties|Azra Bano|2026-08-24|Fix IPCW weights in concordance_index_ipcw when censoring times are tied with event times
+vehicle-command|dispatcher-recover-stale-session|Azra Bano|2026-08-27|dispatcher: recover from stale sessions after session-info verification fails
+medplum|fix-9981|Azra Bano|2026-08-24|fix(graphql): preserve OperationOutcome in GraphQL error extensions
+torchio|812-affine-motion-parity|Azra Bano|2026-08-24|Align Motion rigid-step conventions with Affine
+PyHealth|fix-859-pooled-eval-metrics|Azra Bano|2026-08-24|fix: compute evaluation metrics once on pooled predictions (#859)
+lifelines|fix-1682-rmst-variance|Azra Bano|2026-08-24|Fix restricted_mean_survival_time return_variance to return the estimator's sampling variance for Kaplan-Meier fits
+openai-agents-python|fix-4390|Azra Bano|2026-08-15|fix: add opt-in strip_defaults to ensure_strict_json_schema
+nnsight|fix-backward-multiple-invokers|azrabano23|2026-06-07|Fix MissedProviderError in .backward() with multiple invokers (#664)
