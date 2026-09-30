@@ -1,0 +1,27 @@
+=================================================================
+==11167==ERROR: AddressSanitizer: unknown-crash on address 0xf5f64615f5f64f48 at pc 0x7fdac02fa97d bp 0x7ffea0a572a0 sp 0x7ffea0a56a48
+WRITE of size 17723342345328784888 at 0xf5f64615f5f64f48 thread T0
+    #0 0x7fdac02fa97c in memset ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87
+    #1 0x7fdaae2d4535 in memset /usr/include/x86_64-linux-gnu/bits/string_fortified.h:59
+    #2 0x7fdaae2d4535 in te_form_res_rels /home/user/oss3/work/pt_before/trec_eval/form_res_rels.c:162
+    #3 0x7fdaae2fb001 in te_calc_P /home/user/oss3/work/pt_before/trec_eval/m_P.c:58
+    #4 0x7fdaae34719c in RelevanceEvaluator_evaluate src/pytrec_eval.cpp:652
+    #5 0x536bf7  (/usr/bin/python3.11+0x536bf7) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #6 0x54b420 in PyObject_Vectorcall (/usr/bin/python3.11+0x54b420) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #7 0x53c76c in _PyEval_EvalFrameDefault (/usr/bin/python3.11+0x53c76c) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #8 0x60ff5c  (/usr/bin/python3.11+0x60ff5c) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #9 0x60f707 in PyEval_EvalCode (/usr/bin/python3.11+0x60f707) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #10 0x62ec7b  (/usr/bin/python3.11+0x62ec7b) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #11 0x62af25  (/usr/bin/python3.11+0x62af25) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #12 0x63f7c6  (/usr/bin/python3.11+0x63f7c6) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #13 0x63ee28 in _PyRun_SimpleFileObject (/usr/bin/python3.11+0x63ee28) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #14 0x63eb9e in _PyRun_AnyFileObject (/usr/bin/python3.11+0x63eb9e) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #15 0x639876 in Py_RunMain (/usr/bin/python3.11+0x639876) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #16 0x60098c in Py_BytesMain (/usr/bin/python3.11+0x60098c) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+    #17 0x7fdabf62a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #18 0x7fdabf62a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #19 0x600814 in _start (/usr/bin/python3.11+0x600814) (BuildId: e83bec4489ce5c98206da25dd4b1129d95e5a763)
+
+Address 0xf5f64615f5f64f48 is a wild pointer inside of access range of size 0xf5f5f5f5f5f5f5f8.
+SUMMARY: AddressSanitizer: unknown-crash ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87 in memset
+==11167==ABORTING

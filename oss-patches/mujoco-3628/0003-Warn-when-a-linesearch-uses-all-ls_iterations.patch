@@ -1,0 +1,314 @@
+From 0f78dcd6bb8fb5dd5f8f5630a8a7515b9b42f7f7 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 00:24:32 +0000
+Subject: [PATCH 3/3] Warn when a linesearch uses all ls_iterations.
+
+A CG or Newton linesearch that exhausts ls_iterations without improvement
+ends the solve silently, at a point that is not the minimizer (#3628).
+
+Add mjWARN_LINESEARCH, raised after the constraint solve when any recorded
+iteration's linesearch used all ls_iterations evaluations. The check reads the
+solver statistics in the serial part of the forward pass, since islands can be
+solved in parallel. A linesearch that runs out of evaluations without
+improvement is now recorded as an iteration with zero improvement, so that it
+is visible in mjData.solver and to the check.
+---
+ doc/changelog.rst                    |  3 +
+ doc/includes/references.h            |  1 +
+ include/mujoco/mjtype.h              |  1 +
+ python/mujoco/introspect/enums.py    |  3 +-
+ src/engine/engine_forward.c          | 20 ++++++
+ src/engine/engine_solver.c           |  7 ++
+ src/engine/engine_util_misc.c        |  5 ++
+ test/engine/engine_solver_test.cc    | 96 ++++++++++++++++++----------
+ unity/Runtime/Bindings/MjBindings.cs |  4 +-
+ wasm/codegen/generated/bindings.cc   |  1 +
+ 10 files changed, 106 insertions(+), 35 deletions(-)
+
+diff --git a/doc/changelog.rst b/doc/changelog.rst
+index 5b714c1..d4aec3f 100644
+--- a/doc/changelog.rst
++++ b/doc/changelog.rst
+@@ -31,6 +31,9 @@ General
+ - The linesearch gradient tolerance is now floored at the rounding noise of the linesearch derivative. With
+   :ref:`tolerance<option-tolerance>` set to 0, or in single precision, the linesearch no longer exhausts
+   :ref:`ls_iterations<option-ls_iterations>` chasing noise.
++- Added the warning ``mjWARN_LINESEARCH``, raised when a CG or Newton linesearch uses all
++  :ref:`ls_iterations<option-ls_iterations>`. A linesearch that runs out of evaluations without improvement, which ends
++  the solve, is now reported as a solver iteration with zero improvement in :ref:`mjSolverStat`.
+ 
+ Version 3.14.0 (September 22, 2026)
+ -----------------------------------
+diff --git a/doc/includes/references.h b/doc/includes/references.h
+index 4d55f8e..a2ef511 100644
+--- a/doc/includes/references.h
++++ b/doc/includes/references.h
+@@ -2822,6 +2822,7 @@ typedef enum mjtWarning {           // warning types
+   mjWARN_BADQVEL,                   // bad number in qvel
+   mjWARN_BADQACC,                   // bad number in qacc
+   mjWARN_BADCTRL,                   // bad number in ctrl
++  mjWARN_LINESEARCH,                // linesearch used all ls_iterations
+ 
+   mjNWARNING                        // number of warnings
+ } mjtWarning;
+diff --git a/include/mujoco/mjtype.h b/include/mujoco/mjtype.h
+index 2b01928..dae4692 100644
+--- a/include/mujoco/mjtype.h
++++ b/include/mujoco/mjtype.h
+@@ -562,6 +562,7 @@ typedef enum mjtWarning {           // warning types
+   mjWARN_BADQVEL,                   // bad number in qvel
+   mjWARN_BADQACC,                   // bad number in qacc
+   mjWARN_BADCTRL,                   // bad number in ctrl
++  mjWARN_LINESEARCH,                // linesearch used all ls_iterations
+ 
+   mjNWARNING                        // number of warnings
+ } mjtWarning;
+diff --git a/python/mujoco/introspect/enums.py b/python/mujoco/introspect/enums.py
+index 2dd23f8..d6d7c19 100644
+--- a/python/mujoco/introspect/enums.py
++++ b/python/mujoco/introspect/enums.py
+@@ -601,7 +601,8 @@ ENUMS: Mapping[str, EnumDecl] = dict([
+              ('mjWARN_BADQVEL', 4),
+              ('mjWARN_BADQACC', 5),
+              ('mjWARN_BADCTRL', 6),
+-             ('mjNWARNING', 7),
++             ('mjWARN_LINESEARCH', 7),
++             ('mjNWARNING', 8),
+          ]),
+      )),
+     ('mjtTimer',
+diff --git a/src/engine/engine_forward.c b/src/engine/engine_forward.c
+index 3887023..e92528e 100644
+--- a/src/engine/engine_forward.c
++++ b/src/engine/engine_forward.c
+@@ -1208,6 +1208,21 @@ static void mj_discreteGyro(const mjModel* m, mjData* d) {
+ }
+ 
+ 
++// warn if a CG or Newton linesearch used all ls_iterations; checked from the solver statistics
++// after the solve, since islands may be solved in parallel
++static void checkLinesearch(const mjModel* m, mjData* d, int nisland) {
++  for (int island=0; island < mjMIN(nisland, mjNISLAND); island++) {
++    int niter = mjMIN(d->solver_niter[island], mjNSOLVER);
++    for (int i=0; i < niter; i++) {
++      if (d->solver[island*mjNSOLVER + i].neval >= m->opt.ls_iterations) {
++        mj_warning(d, mjWARN_LINESEARCH, m->opt.ls_iterations);
++        return;
++      }
++    }
++  }
++}
++
++
+ // compute efc_b, efc_force, qfrc_constraint; update qacc
+ static void fwdConstraint(const mjModel* m, mjData* d, mjtSolver solver, int flg_island) {
+   TM_START;
+@@ -1301,6 +1316,11 @@ static void fwdConstraint(const mjModel* m, mjData* d, mjtSolver solver, int flg
+     }
+   }
+ 
++  // primal solvers: warn if a linesearch used all its evaluations
++  if (solver != mjSOL_PGS) {
++    checkLinesearch(m, d, islands_supported ? nisland : 1);
++  }
++
+   // dual solvers: map efc_force to joint space (always monolithic)
+   if (solver == mjSOL_PGS || m->opt.noslip_iterations > 0) {
+     mj_dualFinish(m, d);
+diff --git a/src/engine/engine_solver.c b/src/engine/engine_solver.c
+index c0d183c..0846c58 100644
+--- a/src/engine/engine_solver.c
++++ b/src/engine/engine_solver.c
+@@ -3004,6 +3004,13 @@ static void mj_solPrimal(const mjModel* m, mjData* d, int island, int maxiter, i
+ 
+     // no improvement: done
+     if (alpha == 0) {
++      // the linesearch ran out of evaluations: record it as an iteration without improvement, so
++      // that the failure is visible in the statistics and can be warned about
++      if (ctx.LSiter >= m->opt.ls_iterations) {
++        saveStats(m, d, island, iter, 0, scale * mju_norm(ctx.grad, nv), ctx.LSslope,
++                  ctx.nactive, 0, ctx.LSiter, ctx.nupdate);
++        iter++;
++      }
+       break;
+     }
+ 
+diff --git a/src/engine/engine_util_misc.c b/src/engine/engine_util_misc.c
+index f78a8d6..85a7d67 100644
+--- a/src/engine/engine_util_misc.c
++++ b/src/engine/engine_util_misc.c
+@@ -2018,6 +2018,11 @@ const char* mju_warningText(int warning, size_t info) {
+                info);
+     break;
+ 
++  case mjWARN_LINESEARCH:
++    mjSNPRINTF(str, "Linesearch used all %zu ls_iterations, the constraint solution may be "
++               "inaccurate. Increase ls_iterations.", info);
++    break;
++
+   default:
+     mjSNPRINTF(str, "Unknown warning type %d.", warning);
+   }
+diff --git a/test/engine/engine_solver_test.cc b/test/engine/engine_solver_test.cc
+index 2554fc9..8521381 100644
+--- a/test/engine/engine_solver_test.cc
++++ b/test/engine/engine_solver_test.cc
+@@ -765,26 +765,24 @@ TEST_F(SolverTest, ConeFoldEquivalent) {
+   }
+ }
+ 
+-// With elliptic cones and a large impratio, the curvature of the linesearch
+-// cost jumps by orders of magnitude where a contact crosses the cone boundary.
+-// Newton steps from the bracket ends overshoot across the jump, and this state
+-// from GitHub issue #3628 needed 23 evaluations by bisection: with
+-// ls_iterations=20 the search returned no improvement and the solver stopped at
+-// a non-minimizer, a fixed point of restarting from its own qacc.
+-TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
+-  constexpr char xml[] = R"(
+-  <mujoco>
+-    <option timestep="0.0025" cone="elliptic" impratio="10"
+-            integrator="implicitfast" iterations="100" tolerance="1e-8"/>
+-    <worldbody>
+-      <geom type="plane" size="5 5 .1"/>
+-      <body pos="0 0 .3">
+-        <freejoint/>
+-        <geom type="box" size=".2 .1 .05" mass="5"/>
+-      </body>
+-    </worldbody>
+-  </mujoco>
+-  )";
++// State from GitHub issue #3628: a free box on a plane with elliptic cones and
++// impratio=10, whose second Newton linesearch crosses the cone boundary.
++constexpr char kIssue3628Xml[] = R"(
++<mujoco>
++  <option timestep="0.0025" cone="elliptic" impratio="10"
++          integrator="implicitfast" iterations="100" tolerance="1e-8"/>
++  <worldbody>
++    <geom type="plane" size="5 5 .1"/>
++    <body pos="0 0 .3">
++      <freejoint/>
++      <geom type="box" size=".2 .1 .05" mass="5"/>
++    </body>
++  </worldbody>
++</mujoco>
++)";
++
++// set the issue's state and solve, return qacc
++std::vector<mjtNum> SolveIssue3628(const mjModel* model, mjData* data) {
+   const mjtNum qpos[7] = {-0.38228398123211904, -1.5617372196006747,
+                           0.14420735808017446,  -0.3039178177313174,
+                           0.6782960782869877,   -0.6545711847046525,
+@@ -795,24 +793,30 @@ TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
+   const mjtNum qacc_warmstart[6] = {196.2178511861834,  185.09984762860262,
+                                     456.16231234940415, -2622.9781161564592,
+                                     1990.857671015227,  -729.4643685817738};
++  mj_resetData(model, data);
++  mju_copy(data->qpos, qpos, 7);
++  mju_copy(data->qvel, qvel, 6);
++  mju_copy(data->qacc_warmstart, qacc_warmstart, 6);
++  mj_forward(model, data);
++  return std::vector<mjtNum>(data->qacc, data->qacc + model->nv);
++}
+ 
++// With elliptic cones and a large impratio, the curvature of the linesearch
++// cost jumps by orders of magnitude where a contact crosses the cone boundary.
++// Newton steps from the bracket ends overshoot across the jump, and this state
++// needed 23 evaluations by bisection: with ls_iterations=20 the search returned
++// no improvement and the solver stopped at a non-minimizer, a fixed point of
++// restarting from its own qacc.
++TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
+   char error[1024];
+-  MjModelPtr model = LoadModelFromString(xml, error, sizeof(error));
++  MjModelPtr model = LoadModelFromString(kIssue3628Xml, error, sizeof(error));
+   ASSERT_THAT(model.get(), NotNull()) << error;
+   MjDataPtr data = MakeData(model);
+ 
+-  auto solve = [&](int ls_iterations) {
+-    model->opt.ls_iterations = ls_iterations;
+-    mj_resetData(model.get(), data.get());
+-    mju_copy(data->qpos, qpos, 7);
+-    mju_copy(data->qvel, qvel, 6);
+-    mju_copy(data->qacc_warmstart, qacc_warmstart, 6);
+-    mj_forward(model.get(), data.get());
+-    return std::vector<mjtNum>(data->qacc, data->qacc + model->nv);
+-  };
+-
+-  std::vector<mjtNum> reference = solve(200);
+-  std::vector<mjtNum> qacc = solve(20);
++  model->opt.ls_iterations = 200;
++  std::vector<mjtNum> reference = SolveIssue3628(model.get(), data.get());
++  model->opt.ls_iterations = 20;
++  std::vector<mjtNum> qacc = SolveIssue3628(model.get(), data.get());
+   ASSERT_EQ(data->ncon, 1);
+ 
+   // every linesearch converges within its budget
+@@ -827,6 +831,32 @@ TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
+   }
+ }
+ 
++// A linesearch that uses all ls_iterations raises mjWARN_LINESEARCH; one that
++// runs out without improvement, ending the solve, is recorded as an iteration.
++TEST_F(SolverTest, LineSearchExhaustedWarning) {
++  mock_warning_handler.ExpectWarnings("Linesearch used all 5 ls_iterations");
++  char error[1024];
++  MjModelPtr model = LoadModelFromString(kIssue3628Xml, error, sizeof(error));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  MjDataPtr data = MakeData(model);
++
++  // too small a budget for the second linesearch
++  model->opt.ls_iterations = 5;
++  SolveIssue3628(model.get(), data.get());
++  int niter = data->solver_niter[0];
++  ASSERT_GT(niter, 0);
++  ASSERT_LE(niter, mjNSOLVER);
++  EXPECT_GE(data->solver[niter - 1].neval, 5);
++  EXPECT_EQ(data->solver[niter - 1].improvement, 0);
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].number, 1);
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].lastinfo, 5);
++
++  // default budget: no warning
++  model->opt.ls_iterations = 50;
++  SolveIssue3628(model.get(), data.get());
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].number, 0);
++}
++
+ // With tolerance=0 (or a tolerance below what the precision resolves) the
+ // linesearch cannot meet its gradient tolerance: it used to exhaust
+ // ls_iterations at nearly every iteration, chasing rounding noise. The
+diff --git a/unity/Runtime/Bindings/MjBindings.cs b/unity/Runtime/Bindings/MjBindings.cs
+index b776d12..b19a019 100644
+--- a/unity/Runtime/Bindings/MjBindings.cs
++++ b/unity/Runtime/Bindings/MjBindings.cs
+@@ -512,7 +512,8 @@ public enum mjtWarning : int{
+   mjWARN_BADQVEL = 4,
+   mjWARN_BADQACC = 5,
+   mjWARN_BADCTRL = 6,
+-  mjNWARNING = 7,
++  mjWARN_LINESEARCH = 7,
++  mjNWARNING = 8,
+ }
+ public enum mjtTimer : int{
+   mjTIMER_STEP = 0,
+@@ -5707,6 +5708,7 @@ public unsafe struct mjData_ {
+   public mjWarningStat_ warning4;
+   public mjWarningStat_ warning5;
+   public mjWarningStat_ warning6;
++  public mjWarningStat_ warning7;
+   public mjTimerStat_ timer0;
+   public mjTimerStat_ timer1;
+   public mjTimerStat_ timer2;
+diff --git a/wasm/codegen/generated/bindings.cc b/wasm/codegen/generated/bindings.cc
+index 26bad0f..a62d20e 100644
+--- a/wasm/codegen/generated/bindings.cc
++++ b/wasm/codegen/generated/bindings.cc
+@@ -4507,6 +4507,7 @@ EMSCRIPTEN_BINDINGS(mujoco_bindings) {
+     .value("mjWARN_BADQVEL", mjWARN_BADQVEL)
+     .value("mjWARN_BADQACC", mjWARN_BADQACC)
+     .value("mjWARN_BADCTRL", mjWARN_BADCTRL)
++    .value("mjWARN_LINESEARCH", mjWARN_LINESEARCH)
+     .value("mjNWARNING", mjNWARNING);
+   enum_<mjtWrap>("mjtWrap")
+     .value("mjWRAP_NONE", mjWRAP_NONE)
+-- 
+2.43.0
+

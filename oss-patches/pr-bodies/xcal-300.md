@@ -1,0 +1,35 @@
+## Problem
+
+In the minimum-dependency environment (pandas < 2.1, numpy 1.26), computing XKRX holidays for a range such as `2022-03-31`–`2022-03-31` emits this warning once for each affected rule:
+
+```
+DeprecationWarning: The truth value of an empty array is ambiguous. Returning False, but in future this will result in an error.
+  exchange_calendars/pandas_extensions/korean_holiday.py:75  (`if dt >= since:`)
+```
+
+## Root cause
+
+This answers the open question in #300 about why `alternative_holiday` gets a `DatetimeIndex`. When a rule's reference dates are empty, for example because the requested range is before the rule's `start_date` (`LaborDay` starts in 2026) or outside the lunar reference window, `Holiday._apply_observance` calls `dates.map(observance)` on an empty `DatetimeIndex`. Before pandas 2.1, `DatetimeIndex.map` first tries `mapper(self)` on the whole index and only goes element-wise if that raises. With a non-empty index, `dt >= since` raises "ambiguous truth value" and pandas falls back silently. With an empty index it only warns, so the observance runs on the empty index itself. pandas >= 2.1 always maps element-wise, which is why the warning doesn't appear there.
+
+Rules that currently trigger it for this range: `LaborDay`, the three Seollal rules and the three Chuseok rules.
+
+## Fix
+
+Skip the observances in `Holiday._apply_observance` when there are no dates to observe. The result is unchanged because an empty index maps to an empty index.
+
+## Evidence
+
+pandas 2.0.3, numpy 1.26.4:
+
+- Before: `XKRX.regular_holidays.holidays(date(2022, 3, 31), date(2022, 3, 31))` on a fresh calendar records 7 of the warnings above.
+- After: 0 warnings.
+
+## Tests
+
+Added `TestXKRXCalendar.test_observance_not_called_with_empty_index`. It calls `LaborDay.dates` for a 2022 range and asserts the result is empty and no warnings were raised. I couldn't use the existing `test_feb_29_2022_in_lunar_calendar` because the class-scoped calendar fixture has already cached the holidays by the time it runs, so the warning doesn't fire there.
+
+- pandas 2.0.3 / numpy 1.26.4, before the fix: `pytest tests/test_xkrx_calendar.py -k empty_index` FAILS with `AssertionError: ['The truth value of an empty array is ambiguous. ...']`
+- Same environment, after the fix: passes.
+- pandas 3.0.6 / numpy 2.4.6: passes both before and after (the pandas code path involved doesn't exist there).
+- `pytest tests/test_xkrx_calendar.py tests/test_xhkg_calendar.py tests/test_xnys_calendar.py tests/test_xtks_calendar.py -n 4 --dist loadscope`: 572 passed, 1 xfailed on both environments
+- `ruff format --check .` and `ruff check .`: clean.

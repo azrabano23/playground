@@ -1,0 +1,17 @@
+######## HEAD 0f78dcd, build: ctest --test-dir build/test/engine
+99% tests passed, 3 tests failed out of 985
+Total Test time (real) =  33.80 sec
+	603 - MujocoTest.FirstPartyPlugins (Failed)
+	605 - EnginePluginTest.MultiplePluginTableBlocks (Failed)
+	606 - EnginePluginTest.RegisterIdenticalPlugin (Failed)
+######## HEAD 0f78dcd, build-single: ctest --test-dir build-single/test/engine
+99% tests passed, 3 tests failed out of 985
+Total Test time (real) =  33.60 sec
+	603 - MujocoTest.FirstPartyPlugins (Failed)
+	605 - EnginePluginTest.MultiplePluginTableBlocks (Failed)
+	606 - EnginePluginTest.RegisterIdenticalPlugin (Failed)
+
+Note: the 3 EnginePluginTest/FirstPartyPlugins failures are pre-existing in this partial build
+(only engine test targets and a subset of first-party plugins were built): they fail identically
+when the same test binary is run against the unpatched libmujoco (LD_LIBRARY_PATH=base lib).
+Python (bindings_test.py), WASM and Unity tests were not built or run.

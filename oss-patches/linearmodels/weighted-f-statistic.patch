@@ -1,0 +1,92 @@
+From cf952ac2f978777f6bd3984ccefcf770710633d2 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 01:42:18 +0000
+Subject: [PATCH] BUG: Fix model F-statistic in weighted panel models with a
+ constant
+
+The restricted (constant-only) model used to compute the homoskedastic
+model F-statistic subtracted a scalar from the weighted dependent
+variable. In a weighted regression the constant column is sqrt(w), so
+the restricted residual must subtract sqrt(w) times the fitted
+intercept. The scalar version is only correct when all weights are 1,
+so weighted PooledOLS, PanelOLS and BetweenOLS reported the wrong
+F-statistic and p-value.
+---
+ linearmodels/panel/model.py                |  4 +-
+ linearmodels/tests/panel/test_panel_ols.py | 46 ++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/linearmodels/panel/model.py b/linearmodels/panel/model.py
+index 9a997a9..24ba468 100644
+--- a/linearmodels/panel/model.py
++++ b/linearmodels/panel/model.py
+@@ -534,9 +534,11 @@ class _PanelModelBase:
+                 return InvalidTestStatistic("Model contains only a constant", name=name)
+ 
+             num_df -= 1
++            # The constant in the weighted model is root_w, so the restricted
++            # model's residuals are y less its projection onto root_w
+             weps_const = cast(
+                 "linearmodels.typing.data.Float64Array",
+-                y - float(np.squeeze((root_w.T @ y) / (root_w.T @ root_w))),
++                y - root_w * ((root_w.T @ y) / (root_w.T @ root_w)),
+             )
+ 
+         resid_ss = float(np.squeeze(weps.T @ weps))
+diff --git a/linearmodels/tests/panel/test_panel_ols.py b/linearmodels/tests/panel/test_panel_ols.py
+index 14e7bbc..189afca 100644
+--- a/linearmodels/tests/panel/test_panel_ols.py
++++ b/linearmodels/tests/panel/test_panel_ols.py
+@@ -1574,3 +1574,49 @@ def test_absorbed_with_weights(path):
+             weights=data["rand"],
+             drop_absorbed=True,
+         ).fit(**fit_options)
++
++
++@pytest.mark.parametrize("entity_effects", [False, True])
++def test_f_statistic_weighted_with_constant(entity_effects):
++    rs = np.random.RandomState(0)
++    nentity, ntime = 30, 8
++    index = pd.MultiIndex.from_product([range(nentity), range(ntime)])
++    x = pd.DataFrame(
++        {"const": 1.0, "x1": rs.standard_normal(nentity * ntime)}, index=index
++    )
++    x["x2"] = rs.standard_normal(nentity * ntime)
++    effects = np.repeat(rs.standard_normal(nentity), ntime)
++    y = pd.Series(
++        1 + x.x1 - 0.5 * x.x2 + effects + rs.standard_normal(nentity * ntime),
++        index=index,
++        name="y",
++    )
++    w = pd.Series(rs.uniform(0.5, 2.0, nentity * ntime), index=index, name="w")
++    res = PanelOLS(y, x, entity_effects=entity_effects, weights=w).fit()
++
++    # Direct F-test of x1 = x2 = 0 using weighted least squares
++    root_w = np.sqrt(np.asarray(w))[:, None]
++    if entity_effects:
++        restricted = pd.get_dummies(index.get_level_values(0), dtype=float).values
++    else:
++        restricted = np.ones((y.shape[0], 1))
++    unrestricted = np.c_[restricted, x[["x1", "x2"]].values]
++
++    def wssr(reg):
++        wy = root_w * y.to_numpy()[:, None]
++        wreg = root_w * reg
++        resid = wy - wreg @ lstsq(wreg, wy, rcond=None)[0]
++        return float(np.squeeze(resid.T @ resid))
++
++    ssr_r, ssr_u = wssr(restricted), wssr(unrestricted)
++    df_denom = y.shape[0] - unrestricted.shape[1]
++    expected = ((ssr_r - ssr_u) / 2) / (ssr_u / df_denom)
++    assert res.f_statistic.df == 2
++    assert res.f_statistic.df_denom == df_denom
++    assert_allclose(res.f_statistic.stat, expected)
++    # The model F-statistic does not depend on including the constant
++    res_no_const = PanelOLS(
++        y, x[["x1", "x2"]], entity_effects=entity_effects, weights=w
++    ).fit()
++    if entity_effects:
++        assert_allclose(res_no_const.f_statistic.stat, expected)
+-- 
+2.43.0
+

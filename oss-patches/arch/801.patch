@@ -1,0 +1,68 @@
+From e35ffb3a2d8cc693a01b299aefc9118ba3eaec51 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:35:13 +0000
+Subject: [PATCH] DOC: Document BCa and studentized caveats for block
+ bootstraps
+
+The BCa acceleration is always computed with a leave-one-out (IID)
+jackknife, and the nested bootstrap used by the studentized interval
+reuses the outer block size. Document both so that users of the
+time-series bootstraps are aware of them.
+
+xref #801
+---
+ arch/bootstrap/base.py                        |  7 +++++++
+ doc/source/bootstrap/confidence-intervals.rst | 15 +++++++++++++++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/arch/bootstrap/base.py b/arch/bootstrap/base.py
+index 905c1b7..98d0ff1 100644
+--- a/arch/bootstrap/base.py
++++ b/arch/bootstrap/base.py
+@@ -681,6 +681,13 @@ class IIDBootstrap(metaclass=DocStringInheritor):
+         * 'bca' - Bias corrected and accelerated, adding acceleration parameter
+           to 'bc' method
+ 
++        When used with a time-series bootstrap (e.g.,
++        ``CircularBlockBootstrap``, ``MovingBlockBootstrap`` or
++        ``StationaryBootstrap``), two caveats apply. The acceleration
++        parameter in 'bca' is always estimated using a leave-one-out (IID)
++        jackknife, which ignores serial dependence. The nested bootstrap
++        used by 'studentized' when ``std_err_func`` is not provided uses the
++        same block size as the outer bootstrap.
+         """
+         studentized = "studentized"
+         if not 0.0 < size < 1.0:
+diff --git a/doc/source/bootstrap/confidence-intervals.rst b/doc/source/bootstrap/confidence-intervals.rst
+index 6f278d9..46f694e 100644
+--- a/doc/source/bootstrap/confidence-intervals.rst
++++ b/doc/source/bootstrap/confidence-intervals.rst
+@@ -254,6 +254,12 @@ function.
+     ``std_err_func(params, *args, **kwargs)`` where ``params`` is an array
+     of estimated parameters constructed using ``*args`` and ``**kwargs``.
+ 
++.. note::
++
++    When ``std_err_func`` is not provided and a time-series bootstrap is used,
++    the nested (inner) bootstrap uses the same block size as the outer
++    bootstrap.
++
+ Bias-corrected (``bc``, ``bias-corrected`` or ``debiased``)
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 
+@@ -306,3 +312,12 @@ where :math:`z_{\alpha}` is the usual quantile from the normal distribution and
+     \hat{b}=\#\left\{ \hat{\theta}_{b}^{\star}<\hat{\theta}\right\} / B
+ 
+ :math:`a` is a skewness-like estimator using a leave-one-out jackknife.
++
++.. note::
++
++    The acceleration parameter is always estimated using a leave-one-out
++    jackknife, including when a time-series bootstrap such as
++    :class:`~arch.bootstrap.CircularBlockBootstrap`,
++    :class:`~arch.bootstrap.MovingBlockBootstrap` or
++    :class:`~arch.bootstrap.StationaryBootstrap` is used. The leave-one-out
++    jackknife does not account for serial dependence in the data.
+-- 
+2.43.0
+

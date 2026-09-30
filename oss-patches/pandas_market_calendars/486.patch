@@ -1,0 +1,145 @@
+From e4eb1bd774667f8eed58016eec23b6346432fafa Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:45:30 +0000
+Subject: [PATCH] CME: treat 2025-01-09 Carter day of mourning as an early
+ close
+
+CME did not close for the National Day of Mourning for President Carter.
+Per CME's announcement, agricultural and interest rate markets closed at
+12:15 CT and equity markets at 08:30 CT. Adding the date to the shared
+USNationalDaysofMourning list made CME_Agriculture, CME_Bond and
+CME_Equity drop the session entirely.
+
+Exclude the date from the CME holiday lists and add it as an ad hoc
+special close with the published times.
+
+Fixes #486
+---
+ pandas_market_calendars/calendars/cme.py | 24 ++++++++++++++++++++----
+ tests/test_cme_agriculture_calendar.py   | 10 ++++++++++
+ tests/test_cme_bond_calendar.py          |  9 +++++++++
+ tests/test_cme_equity_calendar.py        |  9 +++++++++
+ 4 files changed, 48 insertions(+), 4 deletions(-)
+
+diff --git a/pandas_market_calendars/calendars/cme.py b/pandas_market_calendars/calendars/cme.py
+index d0c3250..e5dddf8 100644
+--- a/pandas_market_calendars/calendars/cme.py
++++ b/pandas_market_calendars/calendars/cme.py
+@@ -61,6 +61,11 @@ from pandas_market_calendars.market_calendar import MarketCalendar
+ CME_EQUITY_LEGACY_HOURS_START = "2005-09-12"
+ CME_EQUITY_MODERN_HOURS_START = "2012-11-19"
+ 
++# CME did not close for the National Day of Mourning for President Carter. Agricultural, equity and interest rate
++# markets closed early instead: https://investor.cmegroup.com/news-releases/news-release-details/cme-group-announces-trading-hours-us-national-day-mourning-honor
++CarterDayOfMourning2025 = [Timestamp("2025-01-09", tz="UTC")]
++CMENationalDaysofMourning = [d for d in USNationalDaysofMourning if d not in CarterDayOfMourning2025]
++
+ 
+ class CMETradeDateCalendar(MarketCalendar):
+     """
+@@ -166,7 +171,11 @@ class CMEEquityExchangeCalendar(MarketCalendar):
+ 
+     @property
+     def adhoc_holidays(self) -> List[Any]:
+-        return USNationalDaysofMourning
++        return CMENationalDaysofMourning
++
++    @property
++    def special_closes_adhoc(self) -> List[Any]:
++        return [(time(8, 30, tzinfo=self.tz), CarterDayOfMourning2025)]
+ 
+     @property
+     def special_closes(self) -> List[Any]:
+@@ -260,7 +269,7 @@ class CMEAgricultureExchangeCalendar(MarketCalendar):
+ 
+     @property
+     def adhoc_holidays(self) -> List[Any]:
+-        return USNationalDaysofMourning
++        return CMENationalDaysofMourning
+ 
+     @property
+     def special_closes(self) -> List[Any]:
+@@ -277,6 +286,10 @@ class CMEAgricultureExchangeCalendar(MarketCalendar):
+             )
+         ]
+ 
++    @property
++    def special_closes_adhoc(self) -> List[Any]:
++        return [(time(12, 15, tzinfo=self.tz), CarterDayOfMourning2025)]
++
+ 
+ # For the bond market Good Friday that coincides with the release of NFP on the first friday of the month is an open day
+ goodFridayClosed = [
+@@ -460,7 +473,7 @@ class CMEBondExchangeCalendar(MarketCalendar):
+ 
+     @property
+     def adhoc_holidays(self) -> List[Any]:
+-        return list(chain(USNationalDaysofMourning, BondsGoodFridayClosed))
++        return list(chain(CMENationalDaysofMourning, BondsGoodFridayClosed))
+ 
+     @property
+     def special_closes(self) -> List[Any]:
+@@ -492,4 +505,7 @@ class CMEBondExchangeCalendar(MarketCalendar):
+ 
+     @property
+     def special_closes_adhoc(self) -> List[Any]:
+-        return [(time(10, tzinfo=self.tz), BondsGoodFridayOpen)]
++        return [
++            (time(10, tzinfo=self.tz), BondsGoodFridayOpen),
++            (time(12, 15, tzinfo=self.tz), CarterDayOfMourning2025),
++        ]
+diff --git a/tests/test_cme_agriculture_calendar.py b/tests/test_cme_agriculture_calendar.py
+index cf3d815..ae2d548 100644
+--- a/tests/test_cme_agriculture_calendar.py
++++ b/tests/test_cme_agriculture_calendar.py
+@@ -56,3 +56,13 @@ def test_dec_jan():
+ 
+     assert schedule["market_open"].iloc[0] == pd.Timestamp("2020-12-30 01:00:00", tz="UTC")
+     assert schedule["market_close"].iloc[6] == pd.Timestamp("2021-01-08 19:20:00", tz="UTC")
++
++
++def test_2025_carter_day_of_mourning_early_close():
++    # CME closed agricultural markets early at 12:15 CT on the National Day of Mourning for President Carter
++    # https://investor.cmegroup.com/news-releases/news-release-details/cme-group-announces-trading-hours-us-national-day-mourning-honor
++    cme = CMEAgricultureExchangeCalendar()
++    assert pd.Timestamp("2025-01-09") not in cme.holidays().holidays
++    schedule = cme.schedule("2025-01-08", "2025-01-10", tz="America/Chicago")
++    assert schedule.loc["2025-01-09", "market_close"] == pd.Timestamp("2025-01-09 12:15", tz="America/Chicago")
++    assert schedule.loc["2025-01-10", "market_close"] == pd.Timestamp("2025-01-10 13:20", tz="America/Chicago")
+diff --git a/tests/test_cme_bond_calendar.py b/tests/test_cme_bond_calendar.py
+index a88eeda..3be792b 100644
+--- a/tests/test_cme_bond_calendar.py
++++ b/tests/test_cme_bond_calendar.py
+@@ -60,3 +60,12 @@ def test_good_fridays():
+     assert schedule.loc[pd.Timestamp("2021-04-02"), "market_close"] == pd.Timestamp(
+         "2021-04-02", tz="America/Chicago"
+     ).replace(hour=10, minute=00).tz_convert("UTC")
++
++
++def test_2025_carter_day_of_mourning_early_close():
++    # CME closed interest rate markets early at 12:15 CT on the National Day of Mourning for President Carter
++    # https://investor.cmegroup.com/news-releases/news-release-details/cme-group-announces-trading-hours-us-national-day-mourning-honor
++    cme = CMEBondExchangeCalendar()
++    schedule = cme.schedule("2025-01-08", "2025-01-10", tz="America/Chicago")
++    assert schedule.loc["2025-01-09", "market_close"] == pd.Timestamp("2025-01-09 12:15", tz="America/Chicago")
++    assert schedule.loc["2025-01-10", "market_close"] == pd.Timestamp("2025-01-10 16:00", tz="America/Chicago")
+diff --git a/tests/test_cme_equity_calendar.py b/tests/test_cme_equity_calendar.py
+index f76eb6e..7f616f2 100644
+--- a/tests/test_cme_equity_calendar.py
++++ b/tests/test_cme_equity_calendar.py
+@@ -147,3 +147,12 @@ def test_good_friday_2026_has_early_close_session():
+     session = schedule.loc["2026-04-03"]
+     assert session.market_open == pd.Timestamp("2026-04-02 18:00:00", tz="America/New_York")
+     assert session.market_close == pd.Timestamp("2026-04-03 09:15:00", tz="America/New_York")
++
++
++def test_2025_carter_day_of_mourning_early_close():
++    # CME equity markets were open until 8:30 CT on the National Day of Mourning for President Carter
++    # https://investor.cmegroup.com/news-releases/news-release-details/cme-group-announces-trading-hours-us-national-day-mourning-honor
++    cme = CMEEquityExchangeCalendar()
++    schedule = cme.schedule("2025-01-08", "2025-01-10", tz="America/Chicago")
++    assert schedule.loc["2025-01-09", "market_close"] == pd.Timestamp("2025-01-09 08:30", tz="America/Chicago")
++    assert schedule.loc["2025-01-10", "market_close"] == pd.Timestamp("2025-01-10 16:00", tz="America/Chicago")
+-- 
+2.43.0
+

@@ -1,0 +1,25 @@
+=================================================================
+==26203==ERROR: AddressSanitizer: negative-size-param: (size=-8)
+    #0 0x7fa89defaacf in memset ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87
+    #1 0x557e9f260b2a in memset /usr/include/x86_64-linux-gnu/bits/string_fortified.h:59
+    #2 0x557e9f260b2a in te_form_res_rels /home/user/oss3/trec_eval_upstream/form_res_rels.c:157
+    #3 0x557e9f281408 in te_calc_ndcg /home/user/oss3/trec_eval_upstream/m_ndcg.c:76
+    #4 0x557e9f24119b in main /home/user/oss3/trec_eval_upstream/trec_eval.c:403
+    #5 0x7fa89d22a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #6 0x7fa89d22a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x557e9f23d8e4 in _start (/home/user/oss3/work/te/trec_eval.before.asan+0xba8e4) (BuildId: 19b613f1ce498142d017092a8f03c60ea63938bb)
+
+0x502000000090 is located 0 bytes inside of 16-byte region [0x502000000090,0x5020000000a0)
+allocated by thread T0 here:
+    #0 0x7fa89defd9c7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+    #1 0x557e9f27491a in te_chk_and_malloc /home/user/oss3/trec_eval_upstream/utility_pool.c:37
+    #2 0x557e9f260b01 in te_form_res_rels /home/user/oss3/trec_eval_upstream/form_res_rels.c:154
+    #3 0x557e9f281408 in te_calc_ndcg /home/user/oss3/trec_eval_upstream/m_ndcg.c:76
+    #4 0x557e9f24119b in main /home/user/oss3/trec_eval_upstream/trec_eval.c:403
+    #5 0x7fa89d22a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #6 0x7fa89d22a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x557e9f23d8e4 in _start (/home/user/oss3/work/te/trec_eval.before.asan+0xba8e4) (BuildId: 19b613f1ce498142d017092a8f03c60ea63938bb)
+
+SUMMARY: AddressSanitizer: negative-size-param ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87 in memset
+==26203==ABORTING
+exit=1

@@ -1,0 +1,36 @@
+######## base-double
+MuJoCo 3.14.1, sizeof(mjtNum)=8, ncon after forward below
+ncon 1 nefc 3
+ls_iterations 20:          niter 2, final gradient 124, neval [7, 20], max|qacc - qacc(ls 200)| 59.2
+ls_iterations 21:          niter 2, final gradient 124, neval [7, 22], max|qacc - qacc(ls 200)| 59.2
+ls_iterations 22:          niter 2, final gradient 124, neval [7, 22], max|qacc - qacc(ls 200)| 59.2
+ls_iterations 23:          niter 3, final gradient 6.21e-13, neval [7, 23, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 50:          niter 3, final gradient 6.21e-13, neval [7, 23, 2], max|qacc - qacc(ls 200)| 0
+restart from ls 20 result: niter 0, final gradient nan, neval [], max|qacc - qacc(ls 200)| 59.2
+######## fix-double
+MuJoCo 3.14.1, sizeof(mjtNum)=8, ncon after forward below
+ncon 1 nefc 3
+ls_iterations 20:          niter 3, final gradient 6.21e-13, neval [7, 10, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 21:          niter 3, final gradient 6.21e-13, neval [7, 10, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 22:          niter 3, final gradient 6.21e-13, neval [7, 10, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 23:          niter 3, final gradient 6.21e-13, neval [7, 10, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 50:          niter 3, final gradient 6.21e-13, neval [7, 10, 2], max|qacc - qacc(ls 200)| 0
+restart from ls 20 result: niter 0, final gradient nan, neval [], max|qacc - qacc(ls 200)| 0
+######## base-single
+MuJoCo 3.14.1, sizeof(mjtNum)=4, ncon after forward below
+ncon 1 nefc 3
+ls_iterations 20:          niter 3, final gradient 6.65e-05, neval [12, 22, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 21:          niter 3, final gradient 6.65e-05, neval [12, 22, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 22:          niter 3, final gradient 6.65e-05, neval [12, 22, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 23:          niter 3, final gradient 6.65e-05, neval [12, 24, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 50:          niter 3, final gradient 6.65e-05, neval [12, 27, 2], max|qacc - qacc(ls 200)| 0
+restart from ls 20 result: niter 3, final gradient 1.45e-05, neval [21, 3, 2], max|qacc - qacc(ls 200)| 0.000977
+######## fix-single
+MuJoCo 3.14.1, sizeof(mjtNum)=4, ncon after forward below
+ncon 1 nefc 3
+ls_iterations 20:          niter 3, final gradient 9.72e-05, neval [6, 7, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 21:          niter 3, final gradient 9.72e-05, neval [6, 7, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 22:          niter 3, final gradient 9.72e-05, neval [6, 7, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 23:          niter 3, final gradient 9.72e-05, neval [6, 7, 2], max|qacc - qacc(ls 200)| 0
+ls_iterations 50:          niter 3, final gradient 9.72e-05, neval [6, 7, 2], max|qacc - qacc(ls 200)| 0
+restart from ls 20 result: niter 3, final gradient 9.08e-06, neval [7, 2, 2], max|qacc - qacc(ls 200)| 0.00061

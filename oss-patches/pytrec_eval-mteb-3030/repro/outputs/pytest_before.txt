@@ -1,0 +1,513 @@
+...F....                                                       [100%]
+=================================== FAILURES ===================================
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='0') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='1') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='2') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='3') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='4') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='5') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='6') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_____ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='7') _____
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 0.7653606369886217 != 0.0 within 7 places (0.7653606369886217 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+_ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='0', MALLOC_PERTURB_='1', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') _
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+>               self.assertEqual(proc.returncode, 0, proc.stderr)
+E               AssertionError: -11 != 0 :
+
+pytrec_eval_tests.py:363: AssertionError
+_ PyTrecEvalUnitTest.test_empty_qrels_c_extension (PYTHONHASHSEED='0', MALLOC_PERTURB_='128', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') _
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_empty_qrels_c_extension>
+
+    def test_empty_qrels_c_extension(self):
+        # The Python wrapper drops queries without judgments, so call the C
+        # extension directly. trec_eval used to read the relevance of the
+        # (uninitialised) end marker of an empty qrels list; depending on the
+        # heap contents this crashed, hung, or corrupted the scores of all
+        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
+        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
+        # heap contents depend on the process, check several fresh
+        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
+        # as tcache allocations are not perturbed) fills new allocations with
+        # a non-zero byte, which triggers the bug deterministically; other
+        # platforms ignore these variables.
+        script = (
+            'import json, pytrec_eval_ext\n'
+            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
+            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
+            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
+            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
+            'print(json.dumps(ev.evaluate(run)))\n')
+        expected = {
+            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
+            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
+            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
+            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
+        }
+        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
+        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
+                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
+                         for byte in (1, 128)]
+        for extra_env in environments:
+            with self.subTest(**extra_env):
+                proc = subprocess.run(
+                    [sys.executable, '-c', script],
+                    env=dict(os.environ, **extra_env),
+                    capture_output=True, text=True, timeout=120)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertEqual(result.keys(), expected.keys())
+                for qid, measures in expected.items():
+                    for measure, value in measures.items():
+>                       self.assertAlmostEqual(
+                            result[qid][measure], value, msg=(qid, measure))
+E                       AssertionError: 1.6309297535714575 != 0.0 within 7 places (1.6309297535714575 difference) : ('q2', 'ndcg_cut_3')
+
+pytrec_eval_tests.py:368: AssertionError
+________________ PyTrecEvalUnitTest.test_failed_measure_raises _________________
+
+self = <pytrec_eval_tests.PyTrecEvalUnitTest testMethod=test_failed_measure_raises>
+
+    def test_failed_measure_raises(self):
+        # A relevance level this large makes trec_eval's allocation fail. This
+        # used to be ignored, and every query evaluated afterwards silently
+        # got stale values (here: q2 scored 0 instead of 1).
+        evaluator = pytrec_eval.RelevanceEvaluator(
+            {'q1': {'d1': 10 ** 12}, 'q2': {'d1': 1}}, {'P.1', 'ndcg'})
+>       with self.assertRaises(RuntimeError):
+E       AssertionError: RuntimeError not raised
+
+pytrec_eval_tests.py:393: AssertionError
+=========================== short test summary info ============================
+SUBFAILED(PYTHONHASHSEED='0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='1') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='2') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='3') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='4') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='5') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='6') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='7') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='0', MALLOC_PERTURB_='1', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+SUBFAILED(PYTHONHASHSEED='0', MALLOC_PERTURB_='128', GLIBC_TUNABLES='glibc.malloc.tcache_count=0') pytrec_eval_tests.py::PyTrecEvalUnitTest::test_empty_qrels_c_extension
+FAILED pytrec_eval_tests.py::PyTrecEvalUnitTest::test_failed_measure_raises
+11 failed, 7 passed in 1.25s

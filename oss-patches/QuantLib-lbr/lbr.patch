@@ -1,0 +1,1548 @@
+From 505849d93a26bc7bbcffb5fccc622a29bea3642c Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:41:55 +0000
+Subject: [PATCH] Add Jaeckel's "Let's Be Rational" Black implied standard
+ deviation
+
+Add blackFormulaImpliedStdDevLetsBeRational, which inverts the Black
+formula to close to machine precision for any admissible price using
+P. Jaeckel, "Let's Be Rational", Wilmott (2015), pp. 40-53: a rational
+cubic initial guess on four segments of the normalised Black function
+followed by at most two third-order Householder steps.
+
+The normalised Black function, its inverse and the supporting special
+functions (Cody's erfc/erfcx) live in the new letsberational.{hpp,cpp}
+under QuantLib::detail. They are ported from Jaeckel's reference
+implementation, whose notice is preserved in the source.
+
+blackFormulaImpliedStdDev is unchanged.
+---
+ QuantLib.vcxproj                     |   2 +
+ QuantLib.vcxproj.filters             |   6 +
+ ql/CMakeLists.txt                    |   2 +
+ ql/pricingengines/Makefile.am        |   4 +-
+ ql/pricingengines/all.hpp            |   1 +
+ ql/pricingengines/blackformula.cpp   |  78 +++
+ ql/pricingengines/blackformula.hpp   |  34 ++
+ ql/pricingengines/letsberational.cpp | 711 +++++++++++++++++++++++++++
+ ql/pricingengines/letsberational.hpp |  72 +++
+ test-suite/blackformula.cpp          | 438 +++++++++++++++++
+ 10 files changed, 1347 insertions(+), 1 deletion(-)
+ create mode 100644 ql/pricingengines/letsberational.cpp
+ create mode 100644 ql/pricingengines/letsberational.hpp
+
+diff --git a/QuantLib.vcxproj b/QuantLib.vcxproj
+index 9c9c217..6732d9f 100644
+--- a/QuantLib.vcxproj
++++ b/QuantLib.vcxproj
+@@ -1584,6 +1584,7 @@
+     <ClInclude Include="ql\pricingengines\inflation\all.hpp" />
+     <ClInclude Include="ql\pricingengines\inflation\inflationcapfloorengines.hpp" />
+     <ClInclude Include="ql\pricingengines\latticeshortratemodelengine.hpp" />
++    <ClInclude Include="ql\pricingengines\letsberational.hpp" />
+     <ClInclude Include="ql\pricingengines\lookback\all.hpp" />
+     <ClInclude Include="ql\pricingengines\lookback\analyticcontinuousfixedlookback.hpp" />
+     <ClInclude Include="ql\pricingengines\lookback\analyticcontinuousfloatinglookback.hpp" />
+@@ -2690,6 +2691,7 @@
+     <ClCompile Include="ql\pricingengines\futures\discountingperpetualfuturesengine.cpp" />
+     <ClCompile Include="ql\pricingengines\greeks.cpp" />
+     <ClCompile Include="ql\pricingengines\inflation\inflationcapfloorengines.cpp" />
++    <ClCompile Include="ql\pricingengines\letsberational.cpp" />
+     <ClCompile Include="ql\pricingengines\lookback\analyticcontinuousfixedlookback.cpp" />
+     <ClCompile Include="ql\pricingengines\lookback\analyticcontinuousfloatinglookback.cpp" />
+     <ClCompile Include="ql\pricingengines\lookback\analyticcontinuouspartialfixedlookback.cpp" />
+diff --git a/QuantLib.vcxproj.filters b/QuantLib.vcxproj.filters
+index 6f39ce4..4a6a745 100644
+--- a/QuantLib.vcxproj.filters
++++ b/QuantLib.vcxproj.filters
+@@ -2481,6 +2481,9 @@
+     <ClInclude Include="ql\pricingengines\latticeshortratemodelengine.hpp">
+       <Filter>pricingengines</Filter>
+     </ClInclude>
++    <ClInclude Include="ql\pricingengines\letsberational.hpp">
++      <Filter>pricingengines</Filter>
++    </ClInclude>
+     <ClInclude Include="ql\pricingengines\mclongstaffschwartzengine.hpp">
+       <Filter>pricingengines</Filter>
+     </ClInclude>
+@@ -5969,6 +5972,9 @@
+     <ClCompile Include="ql\pricingengines\greeks.cpp">
+       <Filter>pricingengines</Filter>
+     </ClCompile>
++    <ClCompile Include="ql\pricingengines\letsberational.cpp">
++      <Filter>pricingengines</Filter>
++    </ClCompile>
+     <ClCompile Include="ql\pricingengines\asian\analytic_cont_geom_av_price.cpp">
+       <Filter>pricingengines\asian</Filter>
+     </ClCompile>
+diff --git a/ql/CMakeLists.txt b/ql/CMakeLists.txt
+index 436612a..f64c307 100644
+--- a/ql/CMakeLists.txt
++++ b/ql/CMakeLists.txt
+@@ -736,6 +736,7 @@ set(QL_SOURCES
+     pricingengines/forward/mcforwardeuropeanhestonengine.cpp
+     pricingengines/futures/discountingperpetualfuturesengine.cpp
+     pricingengines/greeks.cpp
++    pricingengines/letsberational.cpp
+     pricingengines/inflation/inflationcapfloorengines.cpp
+     pricingengines/lookback/analyticcontinuousfixedlookback.cpp
+     pricingengines/lookback/analyticcontinuousfloatinglookback.cpp
+@@ -2001,6 +2002,7 @@ set(QL_HEADERS
+     pricingengines/greeks.hpp
+     pricingengines/inflation/inflationcapfloorengines.hpp
+     pricingengines/latticeshortratemodelengine.hpp
++    pricingengines/letsberational.hpp
+     pricingengines/lookback/analyticcontinuousfixedlookback.hpp
+     pricingengines/lookback/analyticcontinuousfloatinglookback.hpp
+     pricingengines/lookback/analyticcontinuouspartialfixedlookback.hpp
+diff --git a/ql/pricingengines/Makefile.am b/ql/pricingengines/Makefile.am
+index 8ab5149..eab0172 100644
+--- a/ql/pricingengines/Makefile.am
++++ b/ql/pricingengines/Makefile.am
+@@ -17,6 +17,7 @@ this_include_HEADERS = \
+     genericmodelengine.hpp \
+     greeks.hpp \
+     latticeshortratemodelengine.hpp \
++    letsberational.hpp \
+     mclongstaffschwartzengine.hpp \
+     mcsimulation.hpp
+ 
+@@ -28,7 +29,8 @@ cpp_files = \
+     bacheliercalculator.cpp \
+ 	blackformula.cpp \
+ 	blackscholescalculator.cpp \
+-	greeks.cpp
++	greeks.cpp \
++	letsberational.cpp
+ 
+ if UNITY_BUILD
+ 
+diff --git a/ql/pricingengines/all.hpp b/ql/pricingengines/all.hpp
+index ac077b9..d77a2d2 100644
+--- a/ql/pricingengines/all.hpp
++++ b/ql/pricingengines/all.hpp
+@@ -11,6 +11,7 @@
+ #include <ql/pricingengines/genericmodelengine.hpp>
+ #include <ql/pricingengines/greeks.hpp>
+ #include <ql/pricingengines/latticeshortratemodelengine.hpp>
++#include <ql/pricingengines/letsberational.hpp>
+ #include <ql/pricingengines/mclongstaffschwartzengine.hpp>
+ #include <ql/pricingengines/mcsimulation.hpp>
+ 
+diff --git a/ql/pricingengines/blackformula.cpp b/ql/pricingengines/blackformula.cpp
+index 03913b9..ab4de8a 100644
+--- a/ql/pricingengines/blackformula.cpp
++++ b/ql/pricingengines/blackformula.cpp
+@@ -12,6 +12,7 @@
+  Copyright (C) 2017 Klaus Spanderen
+  Copyright (C) 2019 Wojciech Ślusarski
+  Copyright (C) 2020 Marcin Rybacki
++ Copyright (C) 2026 Azra Bano
+ 
+  This file is part of QuantLib, a free-software/open-source library
+  for financial quantitative analysts and developers - http://quantlib.org/
+@@ -28,6 +29,7 @@
+ */
+ 
+ #include <ql/pricingengines/blackformula.hpp>
++#include <ql/pricingengines/letsberational.hpp>
+ #include <ql/math/functional.hpp>
+ #include <ql/math/solvers1d/newtonsafe.hpp>
+ #include <ql/math/distributions/normaldistribution.hpp>
+@@ -559,6 +561,82 @@ namespace QuantLib {
+             guess, omega, accuracy, maxIterations);
+     }
+ 
++    Real blackFormulaImpliedStdDevLetsBeRational(Option::Type optionType,
++                                                 Real strike,
++                                                 Real forward,
++                                                 Real blackPrice,
++                                                 Real discount,
++                                                 Real displacement) {
++        checkParameters(strike, forward, displacement);
++        QL_REQUIRE(discount > 0.0, "discount (" << discount << ") must be positive");
++        QL_REQUIRE(blackPrice >= 0.0, "option price (" << blackPrice << ") must be non-negative");
++
++        strike += displacement;
++        forward += displacement;
++        QL_REQUIRE(strike > 0.0, "strike + displacement ("
++                                     << strike
++                                     << ") must be positive: the option price "
++                                        "does not depend on the volatility");
++
++        const Real price = blackPrice / discount;
++        const Real intrinsic = std::max(Integer(optionType) * (forward - strike), Real(0.0));
++
++        // A price that rounds to a positive intrinsic value has no resolvable
++        // time value. close_enough() is not used when the intrinsic value is
++        // zero, as it would then treat tiny out-of-the-money prices as zero.
++        if (price == intrinsic || (intrinsic > 0.0 && close_enough(price, intrinsic)))
++            return 0.0;
++        QL_REQUIRE(price > intrinsic,
++                   "option price (" << blackPrice << ") is below the discounted intrinsic value ("
++                                    << intrinsic * discount << "). No solution exists for "
++                                    << optionType << " strike " << strike - displacement
++                                    << ", forward " << forward - displacement << ", discount "
++                                    << discount << ", displacement " << displacement);
++        const Real upperBound = (optionType == Option::Call) ? forward : strike;
++        QL_REQUIRE(price < upperBound,
++                   "option price (" << blackPrice << ") is not below the discounted upper bound ("
++                                    << upperBound * discount << "). No solution exists for "
++                                    << optionType << " strike " << strike - displacement
++                                    << ", forward " << forward - displacement << ", discount "
++                                    << discount << ", displacement " << displacement);
++
++        // Log-moneyness. When strike and forward are within a factor of two
++        // their difference is exact, and log1p keeps the relative accuracy
++        // of x that log(forward/strike) would lose; this matters when the
++        // standard deviation is small compared to |x|.
++        const Real x = (strike <= 2.0 * forward && forward <= 2.0 * strike) ?
++                           std::log1p((forward - strike) / strike) :
++                           std::log(forward / strike);
++
++        // Work with the out-of-the-money option: removing the intrinsic
++        // value here, in price terms, is more accurate than doing it on the
++        // normalised price.
++        Real timeValue = price;
++        Option::Type otmType = optionType;
++        if (Integer(optionType) * x > 0.0) {
++            timeValue = price - intrinsic;
++            otmType = Option::Type(-optionType);
++        }
++
++        const Real stdDev = detail::normalisedImpliedStdDevLetsBeRational(
++            timeValue / (std::sqrt(forward) * std::sqrt(strike)), x, otmType);
++        QL_ENSURE(stdDev >= 0.0 && stdDev < QL_MAX_REAL,
++                  "no implied standard deviation found for "
++                      << optionType << " strike " << strike - displacement << ", forward "
++                      << forward - displacement << ", price " << blackPrice << ", discount "
++                      << discount << ", displacement " << displacement);
++        return stdDev;
++    }
++
++    Real blackFormulaImpliedStdDevLetsBeRational(const ext::shared_ptr<PlainVanillaPayoff>& payoff,
++                                                 Real forward,
++                                                 Real blackPrice,
++                                                 Real discount,
++                                                 Real displacement) {
++        return blackFormulaImpliedStdDevLetsBeRational(payoff->optionType(), payoff->strike(),
++                                                       forward, blackPrice, discount, displacement);
++    }
++
+ 
+     Real blackFormulaCashItmProbability(Option::Type optionType,
+                                         Real strike,
+diff --git a/ql/pricingengines/blackformula.hpp b/ql/pricingengines/blackformula.hpp
+index 7111903..c856a1d 100644
+--- a/ql/pricingengines/blackformula.hpp
++++ b/ql/pricingengines/blackformula.hpp
+@@ -12,6 +12,7 @@
+  Copyright (C) 2017 Klaus Spanderen
+  Copyright (C) 2019 Wojciech Ślusarski
+  Copyright (C) 2020 Marcin Rybacki
++ Copyright (C) 2026 Azra Bano
+ 
+  This file is part of QuantLib, a free-software/open-source library
+  for financial quantitative analysts and developers - http://quantlib.org/
+@@ -226,6 +227,39 @@ namespace QuantLib {
+                                        Real accuracy = 1.0e-6,
+                                        Natural maxIterations = 100);
+ 
++    /*! Black 1976 implied standard deviation,
++        i.e. volatility*sqrt(timeToMaturity)
++
++        It is calculated using
++
++        "Let's Be Rational"
++        P. Jäckel, Wilmott (2015), pp. 40-53,
++        https://doi.org/10.1002/wilm.10395
++
++        which inverts the normalised Black function to (close to)
++        machine precision with a rational initial guess followed by
++        at most two third-order Householder iterations. Unlike
++        blackFormulaImpliedStdDev(), no accuracy or iteration count
++        has to be given.
++
++        A price equal to the intrinsic value gives 0; the function
++        throws for prices below the intrinsic value or not below the
++        undiscounted upper bound (forward for calls, strike for puts),
++        where no solution exists.
++    */
++    Real blackFormulaImpliedStdDevLetsBeRational(Option::Type optionType,
++                                                 Real strike,
++                                                 Real forward,
++                                                 Real blackPrice,
++                                                 Real discount = 1.0,
++                                                 Real displacement = 0.0);
++
++    Real blackFormulaImpliedStdDevLetsBeRational(const ext::shared_ptr<PlainVanillaPayoff>& payoff,
++                                                 Real forward,
++                                                 Real blackPrice,
++                                                 Real discount = 1.0,
++                                                 Real displacement = 0.0);
++
+     /*! Black 1976 probability of being in the money (in the bond martingale
+         measure), i.e. N(d2).
+         It is a risk-neutral probability, not the real world one.
+diff --git a/ql/pricingengines/letsberational.cpp b/ql/pricingengines/letsberational.cpp
+new file mode 100644
+index 0000000..0baa506
+--- /dev/null
++++ b/ql/pricingengines/letsberational.cpp
+@@ -0,0 +1,711 @@
++/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++
++/*
++ Copyright (C) 2026 Azra Bano
++
++ This file is part of QuantLib, a free-software/open-source library
++ for financial quantitative analysts and developers - http://quantlib.org/
++
++ QuantLib is free software: you can redistribute it and/or modify it
++ under the terms of the QuantLib license.  You should have received a
++ copy of the license along with this program; if not, please email
++ <quantlib-dev@lists.sf.net>. The license is also available online at
++ <https://www.quantlib.org/license.shtml>.
++
++ This program is distributed in the hope that it will be useful, but WITHOUT
++ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++ FOR A PARTICULAR PURPOSE.  See the license for more details.
++*/
++
++/*
++ Most of this file is a port of the reference implementation that
++ accompanies P. Jäckel, "Let's Be Rational", Wilmott (2015), pp. 40-53
++ (www.jaeckel.org/LetsBeRational.7z, revision 990), which carries the
++ following notice:
++
++ ======================================================================================
++ Copyright © 2013-2014 Peter Jäckel.
++
++ Permission to use, copy, modify, and distribute this software is freely granted,
++ provided that this notice is preserved.
++
++ WARRANTY DISCLAIMER
++ The Software is provided "as is" without warranty of any kind, either express or implied,
++ including without limitation any implied warranties of condition, uninterrupted use,
++ merchantability, fitness for a particular purpose, or non-infringement.
++ ======================================================================================
++
++ The complementary error functions are a port of W. J. Cody's CALERF
++ (http://www.netlib.org/specfun/erf), as used by the reference
++ implementation.
++*/
++
++#include <ql/errors.hpp>
++#include <ql/math/distributions/normaldistribution.hpp>
++#include <ql/pricingengines/letsberational.hpp>
++#include <algorithm>
++#include <cmath>
++
++namespace QuantLib {
++
++    namespace detail {
++
++        namespace {
++
++            const Real oneOverSqrtTwo = 0.7071067811865475244008443621048490392848359376887;
++            const Real oneOverSqrtTwoPi = 0.3989422804014326779399460599343818684758586311649;
++            const Real sqrtTwoPi = 2.506628274631000502415765284811045253006986740610;
++            const Real twoPi = 6.283185307179586476925286766559005768394338798750;
++            const Real sqrtPiOverTwo = 1.253314137315500251207882642405522626503493370305;
++            const Real sqrtThree = 1.732050807568877293527446341505872366942805253810;
++            const Real sqrtOneOverThree = 0.577350269189625764509148780501957455647601751270;
++            const Real twoPiOverSqrtTwentySeven =
++                1.209199576156145233729385505094770488189377498728;
++            const Real piOverSix = 0.523598775598298873077107230546583814032861566563;
++
++            const Real sqrtEpsilon = std::sqrt(QL_EPSILON);
++            const Real fourthRootEpsilon = std::sqrt(sqrtEpsilon);
++            const Real eighthRootEpsilon = std::sqrt(fourthRootEpsilon);
++            const Real sixteenthRootEpsilon = std::sqrt(eighthRootEpsilon);
++            const Real sqrtMinPositive = std::sqrt(QL_MIN_POSITIVE_REAL);
++            const Real sqrtMax = std::sqrt(QL_MAX_REAL);
++
++            // η: below h = x/s = η the asymptotic expansion is used
++            const Real asymptoticExpansionThreshold = -10.0;
++            // τ: below t = s/2 = τ the small-t expansion is used
++            const Real smallTExpansionThreshold = 2.0 * sixteenthRootEpsilon;
++
++            Real square(Real x) {
++                return x * x;
++            }
++
++            // truncation towards zero, i.e., Fortran's AINT
++            Real aint(Real x) {
++                return x > 0.0 ? Real(std::floor(x)) : Real(-std::floor(-x));
++            }
++
++            /* W. J. Cody, "Rational Chebyshev approximations for the error
++               function", Math. Comp. 23 (1969), pp. 631-638.  Returns
++               erfc(x) or, if scaled is true, erfcx(x) = exp(x^2) erfc(x). */
++            Real calerf(Real x, bool scaled) {
++                static const Real a[5] = {3.1611237438705656, 113.864154151050156,
++                                          377.485237685302021, 3209.37758913846947,
++                                          .185777706184603153};
++                static const Real b[4] = {23.6012909523441209, 244.024637934444173,
++                                          1282.61652607737228, 2844.23683343917062};
++                static const Real c[9] = {
++                    .564188496988670089, 8.88314979438837594, 66.1191906371416295,
++                    298.635138197400131, 881.95222124176909,  1712.04761263407058,
++                    2051.07837782607147, 1230.33935479799725, 2.15311535474403846e-8};
++                static const Real d[8] = {15.7449261107098347, 117.693950891312499,
++                                          537.181101862009858, 1621.38957456669019,
++                                          3290.79923573345963, 4362.61909014324716,
++                                          3439.36767414372164, 1230.33935480374942};
++                static const Real p[6] = {.305326634961232344,    .360344899949804439,
++                                          .125781726111229246,    .0160837851487422766,
++                                          6.58749161529837803e-4, .0163153871373020978};
++                static const Real q[5] = {2.56852019228982242, 1.87295284992346047,
++                                          .527905102951428412, .0605183413124413191,
++                                          .00233520497626869185};
++                const Real sqrpi = 0.56418958354775628695; // 1/sqrt(pi)
++                const Real thresh = 0.46875;
++                // machine-dependent constants for IEEE double precision
++                const Real xinf = 1.79e308, xneg = -26.628, xsmall = 1.11e-16, xbig = 26.543,
++                           xhuge = 6.71e7, xmax = 2.53e307;
++
++                const Real y = std::fabs(x);
++                Real result;
++                if (y <= thresh) {
++                    // erfc(x) = 1 - erf(x) for |x| <= 0.46875
++                    const Real ysq = y > xsmall ? Real(y * y) : Real(0.0);
++                    Real xnum = a[4] * ysq, xden = ysq;
++                    for (Size i = 0; i < 3; ++i) {
++                        xnum = (xnum + a[i]) * ysq;
++                        xden = (xden + b[i]) * ysq;
++                    }
++                    result = 1.0 - x * (xnum + a[3]) / (xden + b[3]);
++                    return scaled ? Real(std::exp(ysq) * result) : result;
++                } else if (y <= 4.0) {
++                    // erfc for 0.46875 <= |x| <= 4
++                    Real xnum = c[8] * y, xden = y;
++                    for (Size i = 0; i < 7; ++i) {
++                        xnum = (xnum + c[i]) * y;
++                        xden = (xden + d[i]) * y;
++                    }
++                    result = (xnum + c[7]) / (xden + d[7]);
++                    if (!scaled) {
++                        // exp(-y^2) evaluated as a product to limit round-off
++                        const Real ysq = aint(y * 16.0) / 16.0, del = (y - ysq) * (y + ysq);
++                        result *= std::exp(-ysq * ysq) * std::exp(-del);
++                    }
++                } else {
++                    // erfc for |x| > 4
++                    result = 0.0;
++                    if (y >= xbig && (!scaled || y >= xmax)) {
++                        // erfc underflows, or erfcx is below the smallest number
++                    } else if (y >= xbig && y >= xhuge) {
++                        result = sqrpi / y;
++                    } else {
++                        const Real ysq = 1.0 / (y * y);
++                        Real xnum = p[5] * ysq, xden = ysq;
++                        for (Size i = 0; i < 4; ++i) {
++                            xnum = (xnum + p[i]) * ysq;
++                            xden = (xden + q[i]) * ysq;
++                        }
++                        result = ysq * (xnum + p[4]) / (xden + q[4]);
++                        result = (sqrpi - result) / y;
++                        if (!scaled) {
++                            const Real ysq2 = aint(y * 16.0) / 16.0, del = (y - ysq2) * (y + ysq2);
++                            result *= std::exp(-ysq2 * ysq2) * std::exp(-del);
++                        }
++                    }
++                }
++                // fix up for negative argument
++                if (x < 0.0) {
++                    if (!scaled) {
++                        result = 2.0 - result;
++                    } else if (x < xneg) {
++                        result = xinf;
++                    } else {
++                        const Real ysq = aint(x * 16.0) / 16.0, del = (x - ysq) * (x + ysq);
++                        const Real e = std::exp(ysq * ysq) * std::exp(del);
++                        result = (e + e) - result;
++                    }
++                }
++                return result;
++            }
++
++            Real erfc(Real x) {
++                return calerf(x, false);
++            }
++            Real erfcx(Real x) {
++                return calerf(x, true);
++            }
++
++            Real normPdf(Real x) {
++                return oneOverSqrtTwoPi * std::exp(-0.5 * x * x);
++            }
++
++            Real normCdf(Real z) {
++                /* For z <= -10, the asymptotic expansion
++                   Phi(z) = phi(z)/|z| [1 - 1/z^2 + ...], Abramowitz & Stegun (26.2.12),
++                   has a relative accuracy of 1.64e-16 with at most 17 terms. */
++                if (z <= -10.0) {
++                    Real sum = 1.0;
++                    if (z >= -1.0 / sqrtEpsilon) {
++                        const Real zsqr = z * z;
++                        Real i = 1.0, g = 1.0, a = QL_MAX_REAL, lasta;
++                        do {
++                            lasta = a;
++                            const Real x = (4.0 * i - 3.0) / zsqr;
++                            const Real y = x * ((4.0 * i - 1.0) / zsqr);
++                            a = g * (x - y);
++                            sum -= a;
++                            g *= y;
++                            ++i;
++                            a = std::fabs(a);
++                        } while (lasta > a && a >= std::fabs(sum * QL_EPSILON));
++                    }
++                    return -normPdf(z) * sum / z;
++                }
++                return 0.5 * erfc(-z * oneOverSqrtTwo);
++            }
++
++            Real inverseNormCdf(Real u) {
++                // only used for the initial guess; the Householder
++                // iterations take care of its ~1e-9 relative error.
++                return InverseCumulativeNormal::standard_value(u);
++            }
++
++            /* normalised intrinsic value max(theta (e^{x/2} - e^{-x/2}), 0);
++               a Taylor expansion avoids cancellation for small |x|. */
++            Real normalisedIntrinsic(Real x, Real theta) {
++                if (theta * x <= 0.0)
++                    return 0.0;
++                const Real x2 = x * x;
++                // the factor 98 is the fourth root of the last coefficient, 92897280
++                if (x2 < 98.0 * fourthRootEpsilon)
++                    return std::fabs(std::max(
++                        Real((theta < 0.0 ? -1.0 : 1.0) * x *
++                             (1.0 + x2 * ((1.0 / 24.0) +
++                                          x2 * ((1.0 / 1920.0) + x2 * ((1.0 / 322560.0) +
++                                                                       (1.0 / 92897280.0) * x2))))),
++                        Real(0.0)));
++                const Real bMax = std::exp(0.5 * x), oneOverBMax = 1.0 / bMax;
++                return std::fabs(
++                    std::max(Real((theta < 0.0 ? -1.0 : 1.0) * (bMax - oneOverBMax)), Real(0.0)));
++            }
++
++            /* Asymptotic expansion of
++                   b = Phi(h+t) exp(h t) - Phi(h-t) exp(-h t)
++                     = exp(-(h^2+t^2)/2) / sqrt(2 pi) [Y(h+t) - Y(h-t)],  Y(z) = Phi(z)/phi(z)
++               for large negative h - t (region 1), with h = x/s and t = s/2,
++               based on Abramowitz & Stegun (26.2.12).
++               With r = (h+t)(h-t), A(h,t) = r/t [Y(h+t) - Y(h-t)] is
++               expanded to 17th order in q = (h/r)^2 as
++                   A = 2 + q (P_1 + 3 q (P_2 + 5 q (P_3 + ... + 33 q P_17)))
++               where P_k(e) = (-1)^k 2 sum_{j=0..k} C(2k+1, 2j+1) e^j and
++               e = (t/h)^2.  This is the same polynomial that the reference
++               implementation spells out term by term. */
++            Real asymptoticExpansionOfNormalisedBlackCall(Real h, Real t) {
++                const Real e = (t / h) * (t / h), r = ((h + t) * (h - t)), q = (h / r) * (h / r);
++                const Integer order = 17;
++                Real sum = 0.0;
++                for (Integer k = order; k >= 1; --k) {
++                    // P_k(e) by Horner's scheme, from the highest power of e;
++                    // the binomial coefficients are exact integers in Real.
++                    const Real n = 2 * k + 1;
++                    Real binomial = 1.0; // C(2k+1, 2k+1)
++                    Real p = binomial;
++                    for (Integer m = 2 * k + 1; m > 1; m -= 2) {
++                        // C(n, m-2), exact: the division leaves no remainder
++                        binomial = binomial * m * (m - 1) / ((n - m + 2) * (n - m + 1));
++                        p = binomial + e * p;
++                    }
++                    p *= (k % 2 == 0) ? 2.0 : -2.0;
++                    sum = (k == order) ? p : Real(p + (2 * k + 1) * q * sum);
++                }
++                sum = 2.0 + q * sum;
++                const Real b = oneOverSqrtTwoPi * std::exp(-0.5 * (h * h + t * t)) * (t / r) * sum;
++                return std::max(b, Real(0.0));
++            }
++
++            /* Expansion of Y(h+t) - Y(h-t) to twelfth order in t (region 2);
++               accurate to machine precision for h <= 0 and t < τ = 2 ε^(1/16) ≈ 0.21.
++               With Y(h) = sqrt(pi/2) erfcx(-h/sqrt(2)), the coefficient
++               a = 1 + h Y(h) is positive and goes to 0 as h -> -inf; it is
++               the main source of round-off when |h| > 1. */
++            Real smallTExpansionOfNormalisedBlackCall(Real h, Real t) {
++                const Real a = 1.0 + h * (0.5 * sqrtTwoPi) * erfcx(-oneOverSqrtTwo * h), w = t * t,
++                           h2 = h * h;
++                // coefficients of w^k, k = 1...6
++                const Real c1 = (-1 + 3 * a + a * h2) / 6;
++                const Real c2 = (-7 + 15 * a + h2 * (-1 + 10 * a + a * h2)) / 120;
++                const Real c3 =
++                    (-57 + 105 * a + h2 * (-18 + 105 * a + h2 * (-1 + 21 * a + a * h2))) / 5040;
++                const Real c4 =
++                    (-561 + 945 * a +
++                     h2 * (-285 + 1260 * a + h2 * (-33 + 378 * a + h2 * (-1 + 36 * a + a * h2)))) /
++                    362880;
++                const Real c5 = (-6555 + 10395 * a +
++                                 h2 * (-4680 + 17325 * a +
++                                       h2 * (-840 + 6930 * a +
++                                             h2 * (-52 + 990 * a + h2 * (-1 + 55 * a + a * h2))))) /
++                                39916800;
++                const Real n6 =
++                    -89055 + 135135 * a +
++                    h2 * (-82845 + 270270 * a +
++                          h2 * (-20370 + 135135 * a +
++                                h2 * (-1926 + 25740 * a +
++                                      h2 * (-75 + 2145 * a + h2 * (-1 + 78 * a + a * h2)))));
++                const Real expansion =
++                    2 * t *
++                    (a +
++                     w * (c1 + w * (c2 + w * (c3 + w * (c4 + w * (c5 + n6 * w / 6227020800.0))))));
++                const Real b = oneOverSqrtTwoPi * std::exp(-0.5 * (h * h + t * t)) * expansion;
++                return std::max(b, Real(0.0));
++            }
++
++            /* Region 3: b is dominated by its first term, so the direct
++               formula loses nothing. */
++            Real normalisedBlackCallUsingNormCdf(Real x, Real s) {
++                const Real h = x / s, t = 0.5 * s, bMax = std::exp(0.5 * x);
++                const Real b = normCdf(h + t) * bMax - normCdf(h - t) / bMax;
++                return std::max(b, Real(0.0));
++            }
++
++            /* Region 4: with Phi(z) = exp(-z^2/2) erfcx(-z/sqrt(2)) / 2,
++                   b = exp(-(h^2+t^2)/2) [erfcx(-(h+t)/sqrt(2)) - erfcx(-(h-t)/sqrt(2))] / 2,
++               which needs a single exponential instead of four. */
++            Real normalisedBlackCallUsingErfcx(Real h, Real t) {
++                const Real b =
++                    0.5 * std::exp(-0.5 * (h * h + t * t)) *
++                    (erfcx(-oneOverSqrtTwo * (h + t)) - erfcx(-oneOverSqrtTwo * (h - t)));
++                return std::max(b, Real(0.0));
++            }
++
++            /* Rational cubic interpolation, following R. Delbourgo and
++               J. A. Gregory, "Shape preserving piecewise rational
++               interpolation", SIAM J. Sci. Stat. Comput. 6 (1985). */
++
++            const Real minimumRationalCubicControlParameter = -(1.0 - sqrtEpsilon);
++            const Real maximumRationalCubicControlParameter = 2.0 / (QL_EPSILON * QL_EPSILON);
++
++            bool isZero(Real x) {
++                return std::fabs(x) < QL_MIN_POSITIVE_REAL;
++            }
++
++            Real rationalCubicInterpolation(
++                Real x, Real xL, Real xR, Real yL, Real yR, Real dL, Real dR, Real r) {
++                const Real h = xR - xL;
++                if (std::fabs(h) <= 0.0)
++                    return 0.5 * (yL + yR);
++                const Real t = (x - xL) / h;
++                // r >= maximum means linear interpolation (this also lets NaN propagate)
++                if (!(r >= maximumRationalCubicControlParameter)) {
++                    const Real omt = 1.0 - t, t2 = t * t, omt2 = omt * omt;
++                    // formula (2.4) divided by formula (2.5)
++                    return (yR * t2 * t + (r * yR - h * dR) * t2 * omt +
++                            (r * yL + h * dL) * t * omt2 + yL * omt2 * omt) /
++                           (1.0 + (r - 3.0) * t * omt);
++                }
++                return yR * t + yL * (1.0 - t);
++            }
++
++            Real rationalCubicControlParameterToFitSecondDerivativeAtLeftSide(
++                Real xL, Real xR, Real yL, Real yR, Real dL, Real dR, Real secondDerivativeL) {
++                const Real h = xR - xL, numerator = 0.5 * h * secondDerivativeL + (dR - dL);
++                if (isZero(numerator))
++                    return 0.0;
++                const Real denominator = (yR - yL) / h - dL;
++                if (isZero(denominator))
++                    return numerator > 0.0 ? maximumRationalCubicControlParameter :
++                                             minimumRationalCubicControlParameter;
++                return numerator / denominator;
++            }
++
++            Real rationalCubicControlParameterToFitSecondDerivativeAtRightSide(
++                Real xL, Real xR, Real yL, Real yR, Real dL, Real dR, Real secondDerivativeR) {
++                const Real h = xR - xL, numerator = 0.5 * h * secondDerivativeR + (dR - dL);
++                if (isZero(numerator))
++                    return 0.0;
++                const Real denominator = dR - (yR - yL) / h;
++                if (isZero(denominator))
++                    return numerator > 0.0 ? maximumRationalCubicControlParameter :
++                                             minimumRationalCubicControlParameter;
++                return numerator / denominator;
++            }
++
++            // smallest control parameter that preserves monotonicity and convexity
++            Real minimumRationalCubicControlParameterValue(Real dL,
++                                                           Real dR,
++                                                           Real s,
++                                                           bool preferShapePreservation) {
++                const bool monotonic = dL * s >= 0.0 && dR * s >= 0.0, convex = dL <= s && s <= dR,
++                           concave = dL >= s && s >= dR;
++                if (!monotonic && !convex && !concave)
++                    return minimumRationalCubicControlParameter;
++                const Real dRmdL = dR - dL, dRms = dR - s, smdL = s - dL;
++                Real r1 = -QL_MAX_REAL, r2 = r1;
++                if (monotonic) {
++                    if (!isZero(s))
++                        r1 = (dR + dL) / s; // (3.8)
++                    else if (preferShapePreservation)
++                        r1 = maximumRationalCubicControlParameter;
++                }
++                if (convex || concave) {
++                    if (!(isZero(smdL) || isZero(dRms))) // (3.18)
++                        r2 = std::max(std::fabs(dRmdL / dRms), std::fabs(dRmdL / smdL));
++                    else if (preferShapePreservation)
++                        r2 = maximumRationalCubicControlParameter;
++                } else if (monotonic && preferShapePreservation) {
++                    r2 = maximumRationalCubicControlParameter;
++                }
++                return std::max(minimumRationalCubicControlParameter, std::max(r1, r2));
++            }
++
++            Real convexRationalCubicControlParameterToFitSecondDerivativeAtLeftSide(
++                Real xL,
++                Real xR,
++                Real yL,
++                Real yR,
++                Real dL,
++                Real dR,
++                Real secondDerivativeL,
++                bool preferShapePreservation) {
++                const Real r = rationalCubicControlParameterToFitSecondDerivativeAtLeftSide(
++                    xL, xR, yL, yR, dL, dR, secondDerivativeL);
++                const Real rMin = minimumRationalCubicControlParameterValue(
++                    dL, dR, (yR - yL) / (xR - xL), preferShapePreservation);
++                return std::max(r, rMin);
++            }
++
++            Real convexRationalCubicControlParameterToFitSecondDerivativeAtRightSide(
++                Real xL,
++                Real xR,
++                Real yL,
++                Real yR,
++                Real dL,
++                Real dR,
++                Real secondDerivativeR,
++                bool preferShapePreservation) {
++                const Real r = rationalCubicControlParameterToFitSecondDerivativeAtRightSide(
++                    xL, xR, yL, yR, dL, dR, secondDerivativeR);
++                const Real rMin = minimumRationalCubicControlParameterValue(
++                    dL, dR, (yR - yL) / (xR - xL), preferShapePreservation);
++                return std::max(r, rMin);
++            }
++
++            /* Lower map f(beta) = 2 pi |x| / sqrt(27) Phi(-|x|/(sqrt(3) s))^3
++               and its first two derivatives with respect to beta, at s. */
++            void lowerMapAndDerivatives(Real x, Real s, Real& f, Real& fp, Real& fpp) {
++                const Real ax = std::fabs(x), z = sqrtOneOverThree * ax / s, y = z * z, s2 = s * s,
++                           Phi = normCdf(-z), phi = normPdf(z);
++                fpp =
++                    piOverSix * y / (s2 * s) * Phi *
++                    (8.0 * sqrtThree * s * ax + (3.0 * s2 * (s2 - 8.0) - 8.0 * x * x) * Phi / phi) *
++                    std::exp(2.0 * y + 0.25 * s2);
++                const Real Phi2 = Phi * Phi;
++                fp = twoPi * y * Phi2 * std::exp(y + 0.125 * s * s);
++                f = twoPiOverSqrtTwentySeven * ax * (Phi2 * Phi);
++            }
++
++            Real inverseLowerMap(Real x, Real f) {
++                return std::fabs(x / (sqrtThree * inverseNormCdf(std::pow(
++                                                      f / (twoPiOverSqrtTwentySeven * std::fabs(x)),
++                                                      1.0 / 3.0))));
++            }
++
++            /* Upper map f(beta) = Phi(-s/2) and its first two derivatives
++               with respect to beta, at s. */
++            void upperMapAndDerivatives(Real x, Real s, Real& f, Real& fp, Real& fpp) {
++                f = normCdf(-0.5 * s);
++                const Real w = square(x / s);
++                fp = -0.5 * std::exp(0.5 * w);
++                fpp = sqrtPiOverTwo * std::exp(w + 0.125 * s * s) * w / s;
++            }
++
++            Real inverseUpperMap(Real f) {
++                return -2.0 * inverseNormCdf(f);
++            }
++
++            /* Third-order Householder step: with newton = -g/g',
++               halley = g''/g' and hh3 = g'''/g', the step is
++               newton * (1 + halley newton / 2) / (1 + newton (halley + hh3 newton / 6)). */
++            Real householderFactor(Real newton, Real halley, Real hh3) {
++                return (1.0 + 0.5 * halley * newton) /
++                       (1.0 + newton * (halley + hh3 * newton / 6.0));
++            }
++
++            /* Safeguarded iteration shared by the three objective functions.
++               The bracket [sLeft, sRight] is tightened at every step; if the
++               iteration leaves it, or changes direction three times, it falls
++               back to bisection.  This only happens for extreme inputs such as
++               |x| > 500. */
++            template <class Step>
++            Real householderIteration(Real x,
++                                      Real beta,
++                                      Real s,
++                                      Real sLeft,
++                                      Real sRight,
++                                      Size maxIterations,
++                                      Size& iterations,
++                                      const Step& step) {
++                Real ds = QL_MAX_REAL, dsPrevious = 0.0;
++                Size directionReversals = 0;
++                for (iterations = 0; iterations < maxIterations && std::fabs(ds) > QL_EPSILON * s;
++                     ++iterations) {
++                    if (ds * dsPrevious < 0.0)
++                        ++directionReversals;
++                    if (iterations > 0 && (directionReversals == 3 || !(s > sLeft && s < sRight))) {
++                        s = 0.5 * (sLeft + sRight);
++                        if (sRight - sLeft <= QL_EPSILON * s)
++                            break;
++                        directionReversals = 0;
++                        ds = 0.0;
++                    }
++                    dsPrevious = ds;
++                    const Real b = normalisedBlackCall(x, s), bp = normalisedVega(x, s);
++                    if (b > beta && s < sRight)
++                        sRight = s;
++                    else if (b < beta && s > sLeft)
++                        sLeft = s;
++                    ds = std::max(Real(-0.5 * s), step(s, b, bp, sLeft, sRight));
++                    s += ds;
++                }
++                return s;
++            }
++
++        }
++
++        Real normalisedBlackCall(Real x, Real s) {
++            // in-the-money: intrinsic value plus out-of-the-money value
++            if (x > 0.0)
++                return normalisedIntrinsic(x, 1.0) + normalisedBlackCall(-x, s);
++            if (s <= 0.0)
++                return 0.0;
++            // With h = x/s and t = s/2, the conditions below are written so as
++            // to avoid divisions by s.
++            // Region 1: h < η and t < τ + |h| - |η|
++            if (x < s * asymptoticExpansionThreshold &&
++                0.5 * s * s + x < s * (smallTExpansionThreshold + asymptoticExpansionThreshold))
++                return asymptoticExpansionOfNormalisedBlackCall(x / s, 0.5 * s);
++            // Region 2: t < τ
++            if (0.5 * s < smallTExpansionThreshold)
++                return smallTExpansionOfNormalisedBlackCall(x / s, 0.5 * s);
++            // Region 3: h + t > 0.85, i.e., b is more than about 85% of exp(x/2)
++            if (x + 0.5 * s * s > s * 0.85)
++                return normalisedBlackCallUsingNormCdf(x, s);
++            // Region 4
++            return normalisedBlackCallUsingErfcx(x / s, 0.5 * s);
++        }
++
++        Real normalisedVega(Real x, Real s) {
++            const Real ax = std::fabs(x);
++            if (ax <= 0.0)
++                return oneOverSqrtTwoPi * std::exp(-0.125 * s * s);
++            if (s <= 0.0 || s <= ax * sqrtMinPositive)
++                return 0.0;
++            return oneOverSqrtTwoPi * std::exp(-0.5 * (square(x / s) + square(0.5 * s)));
++        }
++
++        Real normalisedImpliedStdDevLetsBeRational(
++            Real beta, Real x, Option::Type optionType, Size maxIterations, Size* iterations) {
++            Size n = 0;
++            if (iterations != nullptr)
++                *iterations = 0;
++            Real theta = optionType == Option::Call ? 1.0 : -1.0;
++            // subtract the intrinsic value: in-the-money to out-of-the-money
++            if (theta * x > 0.0) {
++                beta = std::fabs(std::max(Real(beta - normalisedIntrinsic(x, theta)), Real(0.0)));
++                theta = -theta;
++            }
++            // map puts to calls: b_put(x) = b_call(-x)
++            if (theta < 0.0)
++                x = -x;
++            // from here on, x <= 0 and beta is the price of an out-of-the-money call
++            if (beta <= 0.0)
++                return 0.0;
++            const Real bMax = std::exp(0.5 * x);
++            if (beta >= bMax)
++                return QL_MAX_REAL;
++
++            // central point: the inflexion point of b(s) is at s_c = sqrt(2|x|)
++            const Real sC = std::sqrt(std::fabs(2.0 * x)), bC = normalisedBlackCall(x, sC),
++                       vC = normalisedVega(x, sC);
++
++            Real s, sLeft = QL_MIN_POSITIVE_REAL, sRight = QL_MAX_REAL;
++
++            if (beta < bC) {
++                // s_l: where the tangent at s_c crosses b = 0
++                const Real sL = sC - bC / vC, bL = normalisedBlackCall(x, sL);
++                if (beta < bL) {
++                    // lowest segment: rational cubic in the lower map f(beta)
++                    Real fL, dfL, d2fL;
++                    lowerMapAndDerivatives(x, sL, fL, dfL, d2fL);
++                    const Real rLL =
++                        convexRationalCubicControlParameterToFitSecondDerivativeAtRightSide(
++                            0.0, bL, 0.0, fL, 1.0, dfL, d2fL, true);
++                    Real f = rationalCubicInterpolation(beta, 0.0, bL, 0.0, fL, 1.0, dfL, rLL);
++                    if (!(f > 0.0)) {
++                        // round-off for extreme |x|: quadratic interpolation
++                        // through f(0) = 0, f'(0) = 1 and f(b_l)
++                        const Real t = beta / bL;
++                        f = (fL * t + bL * (1.0 - t)) * t;
++                    }
++                    s = inverseLowerMap(x, f);
++                    sRight = sL;
++                    /* objective g(s) = 1/ln(b(s)) - 1/ln(beta), which is
++                       close to linear in s where b is exponentially small:
++                         newton = -g/g'  = (ln(beta)-ln(b)) ln(b)/ln(beta) b/b'
++                         halley = g''/g' = b''/b' - b'/b (1+2/ln(b))
++                         hh3 = g'''/g'   = b'''/b' + 2(b'/b)^2 (1+3/ln(b)(1+1/ln(b)))
++                                           - 3 (b''/b') (b'/b) (1+2/ln(b)) */
++                    const Real lnBeta = std::log(beta);
++                    s = householderIteration(
++                        x, beta, s, sLeft, sRight, maxIterations, n,
++                        [x, lnBeta](Real s, Real b, Real bp, Real sLeft, Real sRight) -> Real {
++                            if (b <= 0.0 || bp <= 0.0) // underflow: bisection
++                                return 0.5 * (sLeft + sRight) - s;
++                            const Real lnB = std::log(b), bpob = bp / b, h = x / s,
++                                       bHalley = h * h / s - s / 4.0,
++                                       newton = (lnBeta - lnB) * lnB / lnBeta / bpob,
++                                       halley = bHalley - bpob * (1.0 + 2.0 / lnB);
++                            const Real bHH3 = bHalley * bHalley - 3.0 * square(h / s) - 0.25,
++                                       hh3 = bHH3 +
++                                             2.0 * square(bpob) *
++                                                 (1.0 + 3.0 / lnB * (1.0 + 1.0 / lnB)) -
++                                             3.0 * bHalley * bpob * (1.0 + 2.0 / lnB);
++                            return newton * householderFactor(newton, halley, hh3);
++                        });
++                    if (iterations != nullptr)
++                        *iterations = n;
++                    return s;
++                } else {
++                    // lower middle segment: rational cubic in s(beta)
++                    const Real vL = normalisedVega(x, sL);
++                    const Real rLM =
++                        convexRationalCubicControlParameterToFitSecondDerivativeAtRightSide(
++                            bL, bC, sL, sC, 1.0 / vL, 1.0 / vC, 0.0, false);
++                    s = rationalCubicInterpolation(beta, bL, bC, sL, sC, 1.0 / vL, 1.0 / vC, rLM);
++                    sLeft = sL;
++                    sRight = sC;
++                }
++            } else {
++                // s_h: where the tangent at s_c crosses b = b_max
++                const Real sH = vC > QL_MIN_POSITIVE_REAL ? Real(sC + (bMax - bC) / vC) : sC,
++                           bH = normalisedBlackCall(x, sH);
++                if (beta <= bH) {
++                    // upper middle segment: rational cubic in s(beta)
++                    const Real vH = normalisedVega(x, sH);
++                    const Real rHM =
++                        convexRationalCubicControlParameterToFitSecondDerivativeAtLeftSide(
++                            bC, bH, sC, sH, 1.0 / vC, 1.0 / vH, 0.0, false);
++                    s = rationalCubicInterpolation(beta, bC, bH, sC, sH, 1.0 / vC, 1.0 / vH, rHM);
++                    sLeft = sC;
++                    sRight = sH;
++                } else {
++                    // highest segment: rational cubic in the upper map f(beta)
++                    Real fH, dfH, d2fH, f = -QL_MAX_REAL;
++                    upperMapAndDerivatives(x, sH, fH, dfH, d2fH);
++                    if (d2fH > -sqrtMax && d2fH < sqrtMax) {
++                        const Real rHH =
++                            convexRationalCubicControlParameterToFitSecondDerivativeAtLeftSide(
++                                bH, bMax, fH, 0.0, dfH, -0.5, d2fH, true);
++                        f = rationalCubicInterpolation(beta, bH, bMax, fH, 0.0, dfH, -0.5, rHH);
++                    }
++                    if (f <= 0.0) {
++                        // quadratic interpolation through f(b_h), f(b_max) = 0
++                        // and f'(b_max) = -1/2
++                        const Real h = bMax - bH, t = (beta - bH) / h;
++                        f = (fH * (1.0 - t) + 0.5 * h * t) * (1.0 - t);
++                    }
++                    s = inverseUpperMap(f);
++                    sLeft = sH;
++                    if (beta > 0.5 * bMax) {
++                        /* objective g(s) = ln(b_max-beta) - ln(b_max-b(s)):
++                             newton = -g/g'  = ln((b_max-b)/(b_max-beta)) (b_max-b)/b'
++                             halley = g''/g' = b''/b' + g'
++                             hh3 = g'''/g'   = b'''/b' + g' (2g' + 3b''/b') */
++                        s = householderIteration(
++                            x, beta, s, sLeft, sRight, maxIterations, n,
++                            [x, beta, bMax](Real s, Real b, Real bp, Real sLeft,
++                                            Real sRight) -> Real {
++                                if (b >= bMax || bp <= QL_MIN_POSITIVE_REAL) // bisection
++                                    return 0.5 * (sLeft + sRight) - s;
++                                const Real bMaxMinusB = bMax - b,
++                                           g = std::log((bMax - beta) / bMaxMinusB),
++                                           gp = bp / bMaxMinusB;
++                                const Real bHalley = square(x / s) / s - s / 4.0,
++                                           bHH3 =
++                                               bHalley * bHalley - 3.0 * square(x / (s * s)) - 0.25;
++                                const Real newton = -g / gp, halley = bHalley + gp,
++                                           hh3 = bHH3 + gp * (2.0 * gp + 3.0 * bHalley);
++                                return newton * householderFactor(newton, halley, hh3);
++                            });
++                        if (iterations != nullptr)
++                            *iterations = n;
++                        return s;
++                    }
++                }
++            }
++            /* middle segments: objective g(s) = b(s) - beta
++                 newton = -g/g'  = (beta-b)/b'
++                 halley = g''/g' = b''/b' = x^2/s^3 - s/4
++                 hh3 = g'''/g'   = b'''/b' = halley^2 - 3 (x/s^2)^2 - 1/4 */
++            s = householderIteration(x, beta, s, sLeft, sRight, maxIterations, n,
++                                     [x, beta](Real s, Real b, Real bp, Real, Real) -> Real {
++                                         const Real newton = (beta - b) / bp,
++                                                    halley = square(x / s) / s - s / 4.0,
++                                                    hh3 = halley * halley -
++                                                          3.0 * square(x / (s * s)) - 0.25;
++                                         return newton * householderFactor(newton, halley, hh3);
++                                     });
++            if (iterations != nullptr)
++                *iterations = n;
++            return s;
++        }
++
++    }
++
++}
+diff --git a/ql/pricingengines/letsberational.hpp b/ql/pricingengines/letsberational.hpp
+new file mode 100644
+index 0000000..e0dcdd3
+--- /dev/null
++++ b/ql/pricingengines/letsberational.hpp
+@@ -0,0 +1,72 @@
++/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++
++/*
++ Copyright (C) 2026 Azra Bano
++
++ This file is part of QuantLib, a free-software/open-source library
++ for financial quantitative analysts and developers - http://quantlib.org/
++
++ QuantLib is free software: you can redistribute it and/or modify it
++ under the terms of the QuantLib license.  You should have received a
++ copy of the license along with this program; if not, please email
++ <quantlib-dev@lists.sf.net>. The license is also available online at
++ <https://www.quantlib.org/license.shtml>.
++
++ This program is distributed in the hope that it will be useful, but WITHOUT
++ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++ FOR A PARTICULAR PURPOSE.  See the license for more details.
++*/
++
++/*! \file letsberational.hpp
++    \brief Normalised Black function and its inverse following Jäckel's
++           "Let's Be Rational"
++
++    These are the building blocks of
++    blackFormulaImpliedStdDevLetsBeRational(); most users will want
++    that function instead.
++*/
++
++#ifndef quantlib_lets_be_rational_hpp
++#define quantlib_lets_be_rational_hpp
++
++#include <ql/option.hpp>
++
++namespace QuantLib {
++
++    namespace detail {
++
++        /*! Normalised undiscounted Black call price
++
++            \f[ b(x,s) = \Phi(x/s + s/2)\,e^{x/2} - \Phi(x/s - s/2)\,e^{-x/2} \f]
++
++            with log-moneyness \f$ x = \ln(F/K) \f$ and total standard
++            deviation \f$ s = \sigma\sqrt{T} \f$; the undiscounted Black
++            price is \f$ \sqrt{FK}\,b(x,s) \f$.
++        */
++        Real normalisedBlackCall(Real x, Real s);
++
++        //! Derivative of normalisedBlackCall() with respect to \f$ s \f$
++        Real normalisedVega(Real x, Real s);
++
++        /*! Total standard deviation \f$ s \f$ such that the normalised
++            Black price of the given option type equals \f$ \beta \f$,
++            using P. Jäckel, "Let's Be Rational", Wilmott (2015), pp. 40-53.
++
++            Prices below the normalised intrinsic value give 0; prices at
++            or above the upper bound \f$ e^{\theta x/2} \f$ give QL_MAX_REAL.
++            No other checks are made.
++
++            \param iterations if not null, receives the number of
++                              Householder iterations that were taken.
++        */
++        Real normalisedImpliedStdDevLetsBeRational(Real beta,
++                                                   Real x,
++                                                   Option::Type optionType,
++                                                   Size maxIterations = 2,
++                                                   Size* iterations = nullptr);
++
++    }
++
++}
++
++#endif
+diff --git a/test-suite/blackformula.cpp b/test-suite/blackformula.cpp
+index c3ca038..2971510 100644
+--- a/test-suite/blackformula.cpp
++++ b/test-suite/blackformula.cpp
+@@ -5,6 +5,7 @@
+  Copyright (C) 2015, 2024 Peter Caspers
+  Copyright (C) 2017 Klaus Spanderen
+  Copyright (C) 2020 Marcin Rybacki
++ Copyright (C) 2026 Azra Bano
+ 
+  This file is part of QuantLib, a free-software/open-source library
+  for financial quantitative analysts and developers - http://quantlib.org/
+@@ -24,7 +25,9 @@
+ #include "toplevelfixture.hpp"
+ #include "utilities.hpp"
+ #include <ql/pricingengines/blackformula.hpp>
++#include <ql/pricingengines/letsberational.hpp>
+ #include <cmath>
++#include <iomanip>
+ 
+ using namespace QuantLib;
+ using namespace boost::unit_test_framework;
+@@ -512,6 +515,441 @@ BOOST_AUTO_TEST_CASE(testDeepInTheMoneyPricesNotBelowIntrinsic) {
+     }
+ }
+ 
++namespace {
++
++    struct LetsBeRationalCase {
++        Real price, stdDev, conditioning;
++        bool resolvable;
++    };
++
++    /* Accurate Black price for a given strike, forward and total standard
++       deviation, built from the normalised Black function so that the
++       round trip is not limited by cancellation in the Black formula.  The
++       conditioning is the factor by which a relative error in the price is
++       amplified in the implied standard deviation. */
++    LetsBeRationalCase letsBeRationalCase(Option::Type type,
++                                          Real strike,
++                                          Real forward,
++                                          Real stdDev,
++                                          Real discount,
++                                          Real displacement) {
++        const Real k = strike + displacement, f = forward + displacement;
++        // accurate log-moneyness of the given strike and forward
++        const Real x = (k <= 2.0 * f && f <= 2.0 * k) ? std::log1p((f - k) / k) : std::log(f / k);
++        const Real theta = (type == Option::Call) ? 1.0 : -1.0;
++        const Real intrinsic = std::max(theta * (f - k), Real(0.0));
++        const Real otm =
++            std::sqrt(f) * std::sqrt(k) * detail::normalisedBlackCall(-std::fabs(x), stdDev);
++        const Real undiscounted = intrinsic + otm;
++        const Real price = discount * undiscounted;
++        const Real vega = std::sqrt(f) * std::sqrt(k) * detail::normalisedVega(x, stdDev);
++        const Real upperBound = (type == Option::Call) ? f : k;
++        // subnormal prices, prices rounding to intrinsic or to the upper
++        // bound do not determine the standard deviation
++        const bool resolvable = otm > QL_MIN_POSITIVE_REAL / QL_EPSILON &&
++                                price / discount > intrinsic && undiscounted < upperBound;
++        return {price, stdDev, std::max(Real(1.0), undiscounted / (stdDev * vega)), resolvable};
++    }
++
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalNormalisedBlack) {
++
++    BOOST_TEST_MESSAGE("Testing the normalised Black function used by Let's Be Rational...");
++
++    // reference values computed with 50-digit arithmetic, covering the four
++    // evaluation branches (asymptotic expansion, small-t expansion, direct
++    // formula, erfcx-based formula)
++    struct Case {
++        Real x, s, expected;
++    };
++    const Case cases[] = {
++        {-30.0, 1.0, 1.4405938487063514186e-199},    {-12.0, 1.0, 1.2910437115451598069e-34},
++        {-15.0, 1.2, 2.9623898007235195834e-37},     {-1.0, 0.1, 7.4653976115686172329e-26},
++        {-0.001, 0.0001, 7.4745602454210835492e-29}, {0.0, 1e-8, 3.9894228040143268462e-9},
++        {-0.1, 2.0, 0.63412712270593895706},         {0.0, 3.0, 0.86638559746228386799},
++        {-30.0, 4.0, 2.3782760139263438428e-15},     {-3.0, 1.0, 0.00034299241765225832057},
++        {-1.0, 0.5, 0.0041423587506785749349},       {-10.0, 5.0, 0.0041547780138823765422},
++        {-5.0, 1.5, 0.00013118738389704313023},      {-4.5, 0.45, 3.2810356800176665841e-25},
++        {-20.0, 2.0, 9.152756597844069956e-25},      {0.001, 0.0001, 0.0010000000416666672083},
++        {1e-5, 0.1, 0.039882611876465373266}};
++
++    // The error is a few tens of ulps at most where the result is tiny: the
++    // exponential of a large argument cannot be more accurate than that, and
++    // the small-t expansion has some cancellation in its leading
++    // coefficient, as documented in the reference implementation. The
++    // plain Black formula would lose several hundred ulps at some of the
++    // points above.
++    const Real tolerance = 1.0e-14;
++
++    for (const Case& c : cases) {
++        const Real b = detail::normalisedBlackCall(c.x, c.s);
++        const Real error = std::fabs(b - c.expected) / c.expected;
++        if (error > tolerance)
++            BOOST_ERROR("failed to reproduce normalised Black price"
++                        << std::setprecision(17) << "\n x:          " << c.x
++                        << "\n s:          " << c.s << "\n calculated: " << b
++                        << "\n expected:   " << c.expected << "\n rel. error: " << error);
++
++        // put-call symmetry b(x) = b(-x) + intrinsic
++        const Real symmetric =
++            detail::normalisedBlackCall(-c.x, c.s) + (std::exp(0.5 * c.x) - std::exp(-0.5 * c.x));
++        if (std::fabs(symmetric - b) >
++            1.0e-15 * std::max(Real(1.0), std::exp(0.5 * std::fabs(c.x))))
++            BOOST_ERROR("normalised Black function violates put-call parity"
++                        << std::setprecision(17) << "\n x: " << c.x << "\n s: " << c.s
++                        << "\n b(x):  " << b << "\n b(-x) + intrinsic: " << symmetric);
++    }
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalRoundTrip) {
++
++    BOOST_TEST_MESSAGE("Testing Let's Be Rational implied standard deviation "
++                       "round trip on a wide grid...");
++
++    const Real forward = 100.0, discount = 0.97;
++    const Real logMoneyness[] = {-30.0, -20.0, -10.0, -5.0, -3.0, -1.0, -0.5, -0.1,
++                                 -0.01, -1e-3, -1e-5, 0.0,  1e-5, 1e-3, 0.01, 0.1,
++                                 0.5,   1.0,   3.0,   5.0,  10.0, 20.0, 30.0};
++    const Real stdDevs[] = {1e-8, 1e-6, 1e-4, 1e-3, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0};
++
++    // The result is exact up to a few ulps of the price, amplified by the
++    // conditioning of the inversion.
++    const Real tolerance = 32 * QL_EPSILON;
++
++    Size checked = 0;
++    for (auto type : {Option::Call, Option::Put}) {
++        for (Real x : logMoneyness) {
++            const Real strike = forward * std::exp(-x);
++            for (Real stdDev : stdDevs) {
++                const LetsBeRationalCase c =
++                    letsBeRationalCase(type, strike, forward, stdDev, discount, 0.0);
++                if (!c.resolvable)
++                    continue;
++                ++checked;
++                const Real implied = blackFormulaImpliedStdDevLetsBeRational(type, strike, forward,
++                                                                             c.price, discount);
++                const Real error = std::fabs(implied - stdDev) / stdDev;
++                if (error > tolerance * c.conditioning)
++                    BOOST_ERROR("failed to recover standard deviation"
++                                << std::setprecision(17) << "\n type:         " << type
++                                << "\n strike:       " << strike << "\n forward:      " << forward
++                                << "\n price:        " << c.price << "\n stdDev:       " << stdDev
++                                << "\n implied:      " << implied << "\n rel. error:   " << error
++                                << "\n conditioning: " << c.conditioning);
++            }
++        }
++    }
++    // make sure that the grid is not mostly skipped
++    BOOST_CHECK(checked > 300);
++
++    // at the normalised level, two Householder iterations suffice everywhere:
++    // further iterations do not change the result
++    for (Real x : logMoneyness) {
++        for (Real stdDev : stdDevs) {
++            const Real b = detail::normalisedBlackCall(-std::fabs(x), stdDev);
++            if (b <= QL_MIN_POSITIVE_REAL / QL_EPSILON)
++                continue;
++            Size iterations = 0;
++            const Real implied = detail::normalisedImpliedStdDevLetsBeRational(
++                b, -std::fabs(x), Option::Call, 100, &iterations);
++            // without the limit, the iteration stops by itself once the
++            // steps are at round-off level
++            if (iterations >= 10)
++                BOOST_ERROR("no convergence without iteration limit for x = "
++                            << -std::fabs(x) << ", stdDev = " << stdDev);
++            const Real limited =
++                detail::normalisedImpliedStdDevLetsBeRational(b, -std::fabs(x), Option::Call);
++            // a third iteration, if any, does not change the result materially
++            const Real difference = std::fabs(implied - limited) / implied;
++            if (difference > 64 * QL_EPSILON)
++                BOOST_ERROR("two iterations are not enough for x = "
++                            << -std::fabs(x) << ", stdDev = " << stdDev << ": relative difference "
++                            << difference);
++        }
++    }
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalWithDisplacement) {
++
++    BOOST_TEST_MESSAGE("Testing Let's Be Rational implied standard deviation "
++                       "with displacement...");
++
++    struct Case {
++        Real strike, forward, displacement;
++    };
++    // negative rates made admissible by the displacement
++    const Case cases[] = {{-0.005, 0.01, 0.03}, {0.01, -0.005, 0.03}, {-0.01, -0.01, 0.02},
++                          {0.02, 0.015, 0.0},   {100.0, 80.0, 25.0},  {-0.029, 0.05, 0.03}};
++    const Real stdDevs[] = {0.001, 0.05, 0.2, 1.0, 2.5};
++    const Real discount = 0.9;
++
++    for (const Case& c : cases) {
++        for (auto type : {Option::Call, Option::Put}) {
++            for (Real stdDev : stdDevs) {
++                // consistency with QuantLib's Black formula...
++                const Real price =
++                    blackFormula(type, c.strike, c.forward, stdDev, discount, c.displacement);
++                const Real implied = blackFormulaImpliedStdDevLetsBeRational(
++                    type, c.strike, c.forward, price, discount, c.displacement);
++                const Real repriced =
++                    blackFormula(type, c.strike, c.forward, implied, discount, c.displacement);
++                // the Black formula has an absolute round-off error
++                // proportional to the (shifted) forward
++                if (std::fabs(repriced - price) > 1.0e-13 * (c.forward + c.displacement))
++                    BOOST_ERROR("failed to reprice with displacement"
++                                << std::setprecision(17) << "\n type:         " << type
++                                << "\n strike:       " << c.strike << "\n forward:      "
++                                << c.forward << "\n displacement: " << c.displacement
++                                << "\n stdDev:       " << stdDev << "\n implied:      " << implied
++                                << "\n price:        " << price << "\n repriced:     " << repriced);
++
++                // ...and the round trip on accurate prices
++                const LetsBeRationalCase lbr =
++                    letsBeRationalCase(type, c.strike, c.forward, stdDev, discount, c.displacement);
++                if (!lbr.resolvable)
++                    continue;
++                const Real exact = blackFormulaImpliedStdDevLetsBeRational(
++                    type, c.strike, c.forward, lbr.price, discount, c.displacement);
++                const Real error = std::fabs(exact - stdDev) / stdDev;
++                if (error > 32 * QL_EPSILON * lbr.conditioning)
++                    BOOST_ERROR("failed to recover standard deviation with displacement"
++                                << std::setprecision(17) << "\n type:         " << type
++                                << "\n strike:       " << c.strike << "\n forward:      "
++                                << c.forward << "\n displacement: " << c.displacement
++                                << "\n stdDev:       " << stdDev << "\n implied:      " << exact
++                                << "\n rel. error:   " << error);
++            }
++        }
++    }
++
++    // the payoff overload agrees
++    const auto payoff = ext::make_shared<PlainVanillaPayoff>(Option::Put, -0.005);
++    const Real price = blackFormula(payoff, 0.01, 0.3, discount, 0.03);
++    QL_CHECK_CLOSE_FRACTION(
++        blackFormulaImpliedStdDevLetsBeRational(payoff, 0.01, price, discount, 0.03),
++        blackFormulaImpliedStdDevLetsBeRational(Option::Put, -0.005, 0.01, price, discount, 0.03),
++        1e-14);
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalEdgeCases) {
++
++    BOOST_TEST_MESSAGE("Testing Let's Be Rational implied standard deviation "
++                       "in edge cases...");
++
++    const Real forward = 100.0, discount = 0.9;
++
++    // at the intrinsic value, including zero-priced out-of-the-money options
++    BOOST_CHECK_EQUAL(blackFormulaImpliedStdDevLetsBeRational(Option::Call, 80.0, forward,
++                                                              discount * 20.0, discount),
++                      0.0);
++    BOOST_CHECK_EQUAL(blackFormulaImpliedStdDevLetsBeRational(Option::Put, 120.0, forward,
++                                                              discount * 20.0, discount),
++                      0.0);
++    BOOST_CHECK_EQUAL(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 120.0, forward, 0.0, discount), 0.0);
++    BOOST_CHECK_EQUAL(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Put, forward, forward, 0.0, discount), 0.0);
++    // a deep in-the-money price that rounds to the intrinsic value
++    const Real deep = blackFormula(Option::Call, 50.0, forward, 0.01, discount);
++    BOOST_CHECK_EQUAL(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 50.0, forward, deep, discount), 0.0);
++
++    // no solution below the intrinsic value or at the upper bound
++    BOOST_CHECK_THROW(blackFormulaImpliedStdDevLetsBeRational(
++                          Option::Call, 80.0, forward, discount * 20.0 * (1.0 - 1e-10), discount),
++                      Error);
++    BOOST_CHECK_THROW(blackFormulaImpliedStdDevLetsBeRational(Option::Put, 120.0, forward,
++                                                              discount * 19.9, discount),
++                      Error);
++    BOOST_CHECK_THROW(blackFormulaImpliedStdDevLetsBeRational(Option::Call, 80.0, forward,
++                                                              discount * forward, discount),
++                      Error);
++    BOOST_CHECK_THROW(blackFormulaImpliedStdDevLetsBeRational(Option::Put, 80.0, forward,
++                                                              discount * 80.0, discount),
++                      Error);
++    BOOST_CHECK_THROW(blackFormulaImpliedStdDevLetsBeRational(Option::Call, 80.0, forward,
++                                                              discount * forward * 1.01, discount),
++                      Error);
++
++    // invalid inputs
++    BOOST_CHECK_THROW(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 100.0, forward, -1.0, discount),
++        Error);
++    BOOST_CHECK_THROW(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 100.0, forward, 5.0, 0.0), Error);
++    BOOST_CHECK_THROW(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 100.0, forward, 5.0, 1.0, -1.0),
++        Error);
++    BOOST_CHECK_THROW(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 100.0, -0.01, 5.0, 1.0, 0.01), Error);
++    // with a zero shifted strike the call price does not depend on the volatility
++    BOOST_CHECK_THROW(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, -0.01, 0.02, 0.01, 1.0, 0.01), Error);
++
++    // Close to the money with a tiny standard deviation, the log-moneyness
++    // must be accurate to full relative precision: log(forward/strike) would
++    // give a relative error around 1e-11 here. The prices were computed with
++    // 50-digit arithmetic for the given (double) strike.
++    struct NearTheMoney {
++        Real price, stdDev;
++    };
++    for (const NearTheMoney& c :
++         {NearTheMoney{7.474564014045043e-30, 1e-7}, NearTheMoney{8.331551225004244e-06, 1e-6}}) {
++        const Real implied =
++            blackFormulaImpliedStdDevLetsBeRational(Option::Call, 100.00010000005, 100.0, c.price);
++        QL_CHECK_CLOSE_FRACTION(implied, c.stdDev, 1e-14);
++    }
++
++    // close to the upper bound
++    for (Real stdDev : {8.0, 12.0, 14.0}) {
++        for (auto type : {Option::Call, Option::Put}) {
++            const Real strike = 110.0;
++            const LetsBeRationalCase c =
++                letsBeRationalCase(type, strike, forward, stdDev, discount, 0.0);
++            BOOST_REQUIRE(c.resolvable);
++            const Real implied =
++                blackFormulaImpliedStdDevLetsBeRational(type, strike, forward, c.price, discount);
++            const Real error = std::fabs(implied - stdDev) / stdDev;
++            if (error > 32 * QL_EPSILON * c.conditioning)
++                BOOST_ERROR("failed to recover standard deviation close to the upper bound"
++                            << std::setprecision(17) << "\n type:       " << type
++                            << "\n stdDev:     " << stdDev << "\n implied:    " << implied
++                            << "\n rel. error: " << error);
++        }
++    }
++
++    // deep out of the money, with prices down to about 1e-196, and tiny
++    // standard deviations
++    struct Case {
++        Option::Type type;
++        Real strike, stdDev;
++    };
++    const Case cases[] = {{Option::Call, forward * std::exp(30.0), 1.0},
++                          {Option::Put, forward * std::exp(-30.0), 1.0},
++                          {Option::Call, forward * std::exp(12.0), 0.5},
++                          {Option::Put, forward * std::exp(-0.5), 0.05},
++                          {Option::Call, forward, 1e-8},
++                          {Option::Put, forward * (1.0 - 1e-7), 1e-6}};
++    for (const Case& c : cases) {
++        const LetsBeRationalCase lbr =
++            letsBeRationalCase(c.type, c.strike, forward, c.stdDev, discount, 0.0);
++        BOOST_REQUIRE(lbr.resolvable);
++        const Real implied =
++            blackFormulaImpliedStdDevLetsBeRational(c.type, c.strike, forward, lbr.price, discount);
++        const Real error = std::fabs(implied - c.stdDev) / c.stdDev;
++        if (error > 32 * QL_EPSILON * lbr.conditioning)
++            BOOST_ERROR("failed to recover standard deviation"
++                        << std::setprecision(17) << "\n type:       " << c.type
++                        << "\n strike:     " << c.strike << "\n price:      " << lbr.price
++                        << "\n stdDev:     " << c.stdDev << "\n implied:    " << implied
++                        << "\n rel. error: " << error);
++    }
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalMovesWithInputs) {
++
++    BOOST_TEST_MESSAGE("Testing that the Let's Be Rational implied standard deviation "
++                       "responds to its inputs...");
++
++    const Real strike = 105.0, forward = 100.0, discount = 0.95, price = 4.0;
++    const Real base =
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, strike, forward, price, discount);
++
++    // higher prices imply higher standard deviations
++    Real previous = 0.0;
++    for (Real p = 0.5; p < 90.0; p += 0.5) {
++        const Real implied =
++            blackFormulaImpliedStdDevLetsBeRational(Option::Call, strike, forward, p, discount);
++        if (!(implied > previous))
++            BOOST_ERROR("implied standard deviation not increasing with price: "
++                        << implied << " at price " << p << " after " << previous);
++        previous = implied;
++    }
++
++    // each input moves the result...
++    const Real lowerDiscount =
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, strike, forward, price, 0.9);
++    const Real higherStrike =
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, 110.0, forward, price, discount);
++    const Real higherForward =
++        blackFormulaImpliedStdDevLetsBeRational(Option::Call, strike, 102.0, price, discount);
++    const Real displaced = blackFormulaImpliedStdDevLetsBeRational(Option::Call, strike, forward,
++                                                                   price, discount, 10.0);
++    BOOST_CHECK(lowerDiscount > base); // same price, larger undiscounted value
++    BOOST_CHECK(higherStrike > base);  // further out of the money
++    BOOST_CHECK(higherForward < base); // closer to the money
++    BOOST_CHECK(displaced < base);     // same price on a larger shifted forward
++
++    // ...consistently with the Black formula
++    QL_CHECK_CLOSE_FRACTION(blackFormula(Option::Call, strike, forward, lowerDiscount, 0.9), price,
++                            1e-12);
++    QL_CHECK_CLOSE_FRACTION(blackFormula(Option::Call, 110.0, forward, higherStrike, discount),
++                            price, 1e-12);
++    QL_CHECK_CLOSE_FRACTION(blackFormula(Option::Call, strike, 102.0, higherForward, discount),
++                            price, 1e-12);
++    QL_CHECK_CLOSE_FRACTION(blackFormula(Option::Call, strike, forward, displaced, discount, 10.0),
++                            price, 1e-12);
++
++    // the put with the same undiscounted time value gives the same result
++    const Real putPrice = price - discount * (forward - strike);
++    QL_CHECK_CLOSE_FRACTION(
++        blackFormulaImpliedStdDevLetsBeRational(Option::Put, strike, forward, putPrice, discount),
++        base, 1e-12);
++}
++
++BOOST_AUTO_TEST_CASE(testLetsBeRationalVersusNewtonSafe) {
++
++    BOOST_TEST_MESSAGE("Testing that Let's Be Rational is at least as accurate as "
++                       "the default Black implied standard deviation...");
++
++    const Real forward = 100.0, discount = 0.97;
++    const Real logMoneyness[] = {-5.0, -3.0, -1.0, -0.5, -0.1, -0.01, 0.0,
++                                 0.01, 0.1,  0.5,  1.0,  3.0,  5.0};
++    const Real stdDevs[] = {1e-4, 1e-3, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0};
++
++    Size compared = 0;
++    // errors in units of the accuracy allowed by the price, eps * conditioning
++    Real maxNormalisedErrorNewton = 0.0, maxNormalisedErrorLbr = 0.0;
++    for (auto type : {Option::Call, Option::Put}) {
++        for (Real x : logMoneyness) {
++            const Real strike = forward * std::exp(-x);
++            for (Real stdDev : stdDevs) {
++                const LetsBeRationalCase c =
++                    letsBeRationalCase(type, strike, forward, stdDev, discount, 0.0);
++                if (!c.resolvable)
++                    continue;
++                Real newton;
++                try {
++                    newton = blackFormulaImpliedStdDev(type, strike, forward, c.price, discount);
++                } catch (Error&) {
++                    continue; // only compare where the existing solver converges
++                }
++                const Real lbr = blackFormulaImpliedStdDevLetsBeRational(type, strike, forward,
++                                                                         c.price, discount);
++                const Real errorNewton = std::fabs(newton - stdDev) / stdDev;
++                const Real errorLbr = std::fabs(lbr - stdDev) / stdDev;
++                ++compared;
++                maxNormalisedErrorNewton =
++                    std::max(maxNormalisedErrorNewton, errorNewton / (QL_EPSILON * c.conditioning));
++                maxNormalisedErrorLbr =
++                    std::max(maxNormalisedErrorLbr, errorLbr / (QL_EPSILON * c.conditioning));
++                // no less accurate, up to what the price resolution allows
++                if (errorLbr > std::max(errorNewton, 32 * QL_EPSILON * c.conditioning))
++                    BOOST_ERROR("Let's Be Rational less accurate than the default solver"
++                                << std::setprecision(17) << "\n type:          " << type
++                                << "\n strike:        " << strike << "\n stdDev:        " << stdDev
++                                << "\n default:       " << newton << "\n LetsBeRational: " << lbr);
++            }
++        }
++    }
++    BOOST_CHECK(compared > 150);
++    // relative to the accuracy that the price allows, the new solver is
++    // within a few ulps everywhere, and better than the default one
++    BOOST_CHECK(maxNormalisedErrorLbr <= 32.0);
++    BOOST_CHECK(maxNormalisedErrorLbr < maxNormalisedErrorNewton);
++}
++
+ BOOST_AUTO_TEST_SUITE_END()
+ 
+ BOOST_AUTO_TEST_SUITE_END()
+-- 
+2.43.0
+

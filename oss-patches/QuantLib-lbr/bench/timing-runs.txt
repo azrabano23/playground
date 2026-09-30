@@ -1,0 +1,22 @@
+Three timing runs (results.txt holds run 1), same binary, machine load average ~30-50 on 4 cores:
+--- run 1
+timing on the common subset (536 cases), ns per call, best of 5 runs
+LetsBeRational                            584
+ImpliedStdDev (default, acc 1e-6)        2021
+ImpliedStdDev (acc 1e-12)                3807
+LiRS (default, acc 1e-6)                  954
+LetsBeRational                            889  (all 621 usable cases)
+--- run 2
+timing on the common subset (536 cases), ns per call, best of 5 runs
+LetsBeRational                            653
+ImpliedStdDev (default, acc 1e-6)        2084
+ImpliedStdDev (acc 1e-12)                2962
+LiRS (default, acc 1e-6)                  746
+LetsBeRational                            794  (all 621 usable cases)
+--- run 3
+timing on the common subset (536 cases), ns per call, best of 5 runs
+LetsBeRational                            818
+ImpliedStdDev (default, acc 1e-6)        2301
+ImpliedStdDev (acc 1e-12)                3479
+LiRS (default, acc 1e-6)                  920
+LetsBeRational                            871  (all 621 usable cases)

@@ -1,0 +1,12 @@
+== venv_pypi
+first  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 0.0, 'recall_10': 0.0}}
+normal call               : {'q1': {'num_ret': 1.0, 'num_rel': 2.0, 'recall_10': 0.5}}
+third  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 2.0, 'recall_10': 0.0}}
+== venv
+first  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 0.0, 'recall_10': 0.0}}
+normal call               : {'q1': {'num_ret': 1.0, 'num_rel': 2.0, 'recall_10': 0.5}}
+third  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 2.0, 'recall_10': 0.0}}
+== venv_te10
+first  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 2.0, 'recall_10': 0.0}}
+normal call               : {'q1': {'num_ret': 1.0, 'num_rel': 2.0, 'recall_10': 0.5}}
+third  call, empty ranking: {'q1': {'num_ret': 0.0, 'num_rel': 2.0, 'recall_10': 0.0}}

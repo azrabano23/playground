@@ -1,0 +1,5 @@
+ndcg                  	q1	1.0000
+ndcg                  	q2	0.0000
+ndcg                  	q3	1.0000
+ndcg                  	all	0.6667
+exit=0

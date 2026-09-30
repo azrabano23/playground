@@ -1,0 +1,60 @@
+From 1bba6ac309face8bc411b5b006d9c88370df5fb5 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:47:43 +0000
+Subject: [PATCH] Fix freq="y" shorthand in stats plots on pandas 3
+
+PerformanceStats._get_series and GroupStats._get_series mapped the "y"
+shorthand to the "a" alias, which pandas 3 no longer accepts, so
+plot(freq="y"), plot_histogram(freq="y") and the GroupStats plots
+raised ValueError. Map it to the year-end alias for the installed pandas
+version instead.
+---
+ ffn/core.py        |  4 ++--
+ tests/test_core.py | 12 ++++++++++++
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/ffn/core.py b/ffn/core.py
+index a5979c1..85c8eb0 100644
+--- a/ffn/core.py
++++ b/ffn/core.py
+@@ -727,7 +727,7 @@ class PerformanceStats:
+             return self.daily_prices
+ 
+         if freq == "y":
+-            freq = "a"
++            freq = _YearEnd
+         return self.daily_prices.asfreq(freq, "ffill")
+ 
+     def _create_stats_series(self):
+@@ -1148,7 +1148,7 @@ class GroupStats(dict):
+             return self.prices
+ 
+         if freq == "y":
+-            freq = "a"
++            freq = _YearEnd
+         return self.prices.asfreq(freq, "ffill")
+ 
+     def to_csv(self, sep=",", path=None):
+diff --git a/tests/test_core.py b/tests/test_core.py
+index 7945a3a..08cbbc7 100644
+--- a/tests/test_core.py
++++ b/tests/test_core.py
+@@ -3361,3 +3361,15 @@ def test_calc_sortino_annualizes_weekly():
+     downside = np.sqrt((returns.clip(upper=0.0) ** 2).mean())
+     expected = returns.mean() / downside * np.sqrt(52)
+     assert np.allclose(returns.calc_sortino_ratio(), expected)
++
++
++def test_yearly_series_shorthand(df):
++    # freq="y" is ffn's shorthand for yearly data in plots and histograms
++    prices = df.iloc[:, :2]
++    group = ffn.calc_stats(prices)
++
++    yearly = group[0]._get_series("y")
++    assert yearly.equals(group[0].daily_prices.asfreq(ffn.core._YearEnd, "ffill"))
++
++    yearly = group._get_series("y")
++    assert yearly.equals(group.prices.asfreq(ffn.core._YearEnd, "ffill"))
+-- 
+2.43.0
+

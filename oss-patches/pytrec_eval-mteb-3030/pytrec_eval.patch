@@ -1,0 +1,208 @@
+From 5e117500d86acca7753e5e6dc5b9bc6f4c8c0698 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:44:18 +0000
+Subject: [PATCH] Fix garbage/stale scores for queries without judgments in the
+ C extension
+
+RankingBuilder only set docno on the end marker of each qrels list, so its
+rel field was uninitialised. For a query with an empty qrels dict,
+trec_eval's te_form_res_rels reads text_qrels[0].rel as the maximum
+relevance level. That value is heap garbage, and depending on it the
+evaluation:
+- segfaulted (negative memset size),
+- spent seconds zeroing gigabytes, or
+- failed to allocate. In that case trec_eval's per-query cache kept the
+  previous query's results with a freed rel_levels buffer, and every later
+  query was scored from it (e.g. NDCG > 1).
+
+Because the garbage depends on the heap layout, the scores changed between
+processes and with PYTHONHASHSEED (cvangysel/pytrec_eval#57, #49,
+embeddings-benchmark/mteb#3030).
+
+0.5.8 hides this by dropping empty qrels in the Python wrapper. Fix the cause
+in the extension instead:
+
+- zero the whole end marker, so trec_eval sees relevance 0 for an empty
+  qrels list;
+- check the return value of calc_meas and raise RuntimeError on UNDEF,
+  instead of returning whatever was left in the buffers. Previously, e.g.,
+  a relevance of 10**12 made every later query silently score 0.
+
+One exception: an empty ranking evaluated before trec_eval has allocated
+its buffers makes te_chk_and_malloc return NULL for 0 items, which is
+reported as UNDEF. That case keeps its previous result (all zeros) until
+trec_eval is fixed upstream.
+
+The tests call pytrec_eval_ext directly in fresh interpreters, across hash
+seeds and with glibc's MALLOC_PERTURB_, which fails deterministically
+before this change. They also check that an empty ranking in a fresh
+process does not raise.
+---
+ src/pytrec_eval.cpp        | 30 +++++++++++++--
+ tests/pytrec_eval_tests.py | 75 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+), 3 deletions(-)
+
+diff --git a/src/pytrec_eval.cpp b/src/pytrec_eval.cpp
+index 305f9fa..7f53c5f 100644
+--- a/src/pytrec_eval.cpp
++++ b/src/pytrec_eval.cpp
+@@ -177,7 +177,10 @@ class RankingBuilder {
+ 
+                 ++pair_idx;
+             }
+-            query_document_pairs[pair_idx].docno = NULL;
++            // Zero the whole end marker, not just docno: trec_eval reads the
++            // first entry's relevance even when a query has no judgments, so
++            // for an empty dict it must not see uninitialised memory.
++            memset(&query_document_pairs[pair_idx], 0, sizeof(PairT));
+ 
+             if (!ProcessListOfQueryDocumentPairs(&query_pair_list[query_idx],
+                                                  PyDict_Size(value),
+@@ -621,7 +624,7 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
+     q_eval.num_queries = 0;
+ 
+     // Holds the result.
+-    PyObject* const result = PyDict_New();
++    PyObject* result = PyDict_New();
+ 
+     for (size_t result_query_idx = 0;
+          result_query_idx < num_queries;
+@@ -649,13 +652,30 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
+             }
+ 
+             // Compute measure.
+-            te_trec_measures[measure_idx]->calc_meas(
++            const int calc_status = te_trec_measures[measure_idx]->calc_meas(
+                 &self->epi_,
+                 &self->all_rel_info_.rel_info[eval_query_idx],
+                 &all_results.results[result_query_idx],
+                 te_trec_measures[measure_idx],
+                 &q_eval);
+ 
++            // Never return the values left in q_eval (or trec_eval's
++            // per-query cache) after a failed computation. Exception: for an
++            // empty ranking, trec_eval versions whose te_chk_and_malloc returns
++            // NULL for a request of 0 items report UNDEF when nothing was
++            // allocated yet; keep the previous behaviour (all zeros) there.
++            const long num_ranked = ((TEXT_RESULTS_INFO*)
++                all_results.results[result_query_idx].q_results)->num_text_results;
++            if (calc_status == UNDEF && num_ranked > 0) {
++                PyErr_Format(
++                    PyExc_RuntimeError,
++                    "trec_eval failed to compute measure %s for query %s.",
++                    te_trec_measures[measure_idx]->name, qid.c_str());
++                Py_DECREF(query_measures);
++                Py_CLEAR(result);
++                break;
++            }
++
+             CHECK_GE(te_trec_measures[measure_idx]->eval_index, 0);
+ 
+             if (te_trec_measures[measure_idx]->print_single_meas == &te_print_single_meas_a_cut) {
+@@ -696,6 +716,10 @@ static PyObject* RelevanceEvaluator_evaluate(RelevanceEvaluator* self, PyObject*
+             accum_eval.num_queries++;
+         }
+ 
++        if (result == NULL) {
++            break;
++        }
++
+         PyDict_SetItemAndSteal(
+             result,
+             PyUnicode_FromString(qid.c_str()),
+diff --git a/tests/pytrec_eval_tests.py b/tests/pytrec_eval_tests.py
+index c2a04f0..55f4b49 100644
+--- a/tests/pytrec_eval_tests.py
++++ b/tests/pytrec_eval_tests.py
+@@ -1,6 +1,9 @@
+ import collections
++import json
+ import os
+ import re
++import subprocess
++import sys
+ import unittest
+ 
+ import pytrec_eval
+@@ -322,6 +325,78 @@ class PyTrecEvalUnitTest(unittest.TestCase):
+         evaluator = pytrec_eval.RelevanceEvaluator({}, {})
+         self.assertEqual(evaluator.evaluate({}), {})
+ 
++    def test_empty_qrels_c_extension(self):
++        # The Python wrapper drops queries without judgments, so call the C
++        # extension directly. trec_eval used to read the relevance of the
++        # (uninitialised) end marker of an empty qrels list; depending on the
++        # heap contents this crashed, hung, or corrupted the scores of all
++        # later queries (https://github.com/cvangysel/pytrec_eval/issues/57,
++        # https://github.com/embeddings-benchmark/mteb/issues/3030). As the
++        # heap contents depend on the process, check several fresh
++        # interpreters. On glibc, MALLOC_PERTURB_ (with the tcache disabled,
++        # as tcache allocations are not perturbed) fills new allocations with
++        # a non-zero byte, which triggers the bug deterministically; other
++        # platforms ignore these variables.
++        script = (
++            'import json, pytrec_eval_ext\n'
++            'qrel = {"q1": {"d1": 1, "d2": 1}, "q2": {},'
++            ' "q3": {"d1": 1, "d3": 1}, "q4": {"d2": 1}}\n'
++            'run = {q: {"d1": 3.0, "d2": 2.0, "d3": 1.0} for q in qrel}\n'
++            'ev = pytrec_eval_ext.RelevanceEvaluator(qrel, {"P.1", "ndcg_cut.3"})\n'
++            'print(json.dumps(ev.evaluate(run)))\n')
++        expected = {
++            'q1': {'P_1': 1.0, 'ndcg_cut_3': 1.0},
++            'q2': {'P_1': 0.0, 'ndcg_cut_3': 0.0},
++            'q3': {'P_1': 1.0, 'ndcg_cut_3': 0.9197207891481876},
++            'q4': {'P_1': 0.0, 'ndcg_cut_3': 0.6309297535714575},
++        }
++        environments = [{'PYTHONHASHSEED': str(seed)} for seed in range(8)]
++        environments += [{'PYTHONHASHSEED': '0', 'MALLOC_PERTURB_': str(byte),
++                          'GLIBC_TUNABLES': 'glibc.malloc.tcache_count=0'}
++                         for byte in (1, 128)]
++        for extra_env in environments:
++            with self.subTest(**extra_env):
++                proc = subprocess.run(
++                    [sys.executable, '-c', script],
++                    env=dict(os.environ, **extra_env),
++                    capture_output=True, text=True, timeout=120)
++                self.assertEqual(proc.returncode, 0, proc.stderr)
++                result = json.loads(proc.stdout)
++                self.assertEqual(result.keys(), expected.keys())
++                for qid, measures in expected.items():
++                    for measure, value in measures.items():
++                        self.assertAlmostEqual(
++                            result[qid][measure], value, msg=(qid, measure))
++
++    def test_empty_ranking_in_fresh_process(self):
++        # An empty ranking must not be reported as a trec_eval failure, also
++        # when it is the very first thing evaluated in a process.
++        script = (
++            'import json, pytrec_eval\n'
++            'ev = pytrec_eval.RelevanceEvaluator('
++            '{"q1": {"d1": 1, "d2": 1}}, {"num_ret", "recall.10", "ndcg"})\n'
++            'print(json.dumps(ev.evaluate({"q1": {}})))\n')
++        proc = subprocess.run([sys.executable, '-c', script],
++                              capture_output=True, text=True, timeout=120)
++        self.assertEqual(proc.returncode, 0, proc.stderr)
++        result = json.loads(proc.stdout)['q1']
++        self.assertEqual(result['num_ret'], 0.0)
++        self.assertEqual(result['recall_10'], 0.0)
++        self.assertEqual(result['ndcg'], 0.0)
++
++    def test_failed_measure_raises(self):
++        # A relevance level this large makes trec_eval's allocation fail. This
++        # used to be ignored, and every query evaluated afterwards silently
++        # got stale values (here: q2 scored 0 instead of 1).
++        evaluator = pytrec_eval.RelevanceEvaluator(
++            {'q1': {'d1': 10 ** 12}, 'q2': {'d1': 1}}, {'P.1', 'ndcg'})
++        with self.assertRaises(RuntimeError):
++            evaluator.evaluate({'q1': {'d1': 1.0}, 'q2': {'d1': 1.0}})
++        # The evaluator is still usable afterwards.
++        self.assertEqual(
++            evaluator.evaluate({'q2': {'d1': 1.0}}),
++            {'q2': {'P_1': 1.0, 'ndcg': 1.0}})
++
+     def test_measure_params(self):
+         qrel = {
+             'q1': {
+-- 
+2.43.0
+

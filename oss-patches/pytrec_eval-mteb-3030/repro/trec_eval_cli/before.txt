@@ -1,0 +1,2 @@
+/bin/bash: line 1: 26200 Segmentation fault      ./trec_eval.before -q -m ndcg qrels.neg2 results
+exit=139

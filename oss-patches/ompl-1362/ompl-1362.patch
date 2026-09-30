@@ -1,0 +1,372 @@
+From 0ba755090371bbeebc5ec78eefea741523af7aa9 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 23:55:57 +0000
+Subject: [PATCH] OwenStateSpace: solve for the path per Dubins path type
+ (#1362)
+
+getPath() often failed to find medium and high altitude paths. There were
+two causes:
+
+- The root finding ran on the length of the *shortest* Dubins path, which
+  jumps when the optimal path type changes or a path type stops existing.
+  bracket_and_solve_root then converges onto a jump instead of a root.
+- In the high altitude case the solver stopped at a relative bracket width
+  of 2^-19, but the result was checked against an absolute residual of 1e-5
+  at the bracket midpoint. With several helix turns the slope is large enough
+  that the midpoint fails this check even when the root was found. This was
+  the main cause of failures for larger workspaces.
+
+Now each of the six Dubins path types is solved separately. For a fixed
+type the length is continuous in the turn radius (high altitude) or the
+extra turn angle (medium altitude) except where a turn angle wraps around
+2*pi or the type stops existing. The search range is sampled on a coarse
+grid, the first sign change is refined with TOMS 748, and a bracket is only
+accepted if the residual is actually small, so jumps are skipped. The end
+of the bracket that does not exceed the maximum pitch is returned. Since
+all max-pitch paths have the same length, the first solution is used.
+
+Also add DubinsStateSpace::getPath(state1, state2, radius, pathType) to
+compute a path of a given type, and use |phi| in
+OwenStateSpace::PathType::length(), which was wrong for right turns
+(phi < 0; previously such paths were never returned).
+
+With 100k random pairs in [-10,10]^3 (turn radius 1, max pitch 30 deg)
+failures go from 1245 to 164. The remaining ones have start and goal less
+than 4 turn radii apart horizontally; a dense brute-force search finds
+no path of Owen et al.'s form for 155 of them.
+---
+ src/ompl/base/spaces/DubinsStateSpace.h       |   5 +
+ src/ompl/base/spaces/src/DubinsStateSpace.cpp |  31 ++++
+ src/ompl/base/spaces/src/OwenStateSpace.cpp   | 167 ++++++++++++------
+ tests/base/state_spaces.cpp                   |  51 ++++++
+ 4 files changed, 203 insertions(+), 51 deletions(-)
+
+diff --git a/src/ompl/base/spaces/DubinsStateSpace.h b/src/ompl/base/spaces/DubinsStateSpace.h
+index e319957..4e73865 100644
+--- a/src/ompl/base/spaces/DubinsStateSpace.h
++++ b/src/ompl/base/spaces/DubinsStateSpace.h
+@@ -150,6 +150,11 @@ namespace ompl
+             PathType getPath(const State *state1, const State *state2) const;
+             /** \brief Return a shortest Dubins path for a vehicle with given turning radius */
+             static PathType getPath(const State *state1, const State *state2, double radius);
++            /** \brief Return the Dubins path of a given type (an index into dubinsPathType()) for a vehicle
++                with given turning radius. If no path of that type exists, the returned path has length
++                std::numeric_limits<double>::max(). Unlike the shortest path, a path of fixed type changes
++                continuously with the radius (except where one of its turn angles wraps around 2π). */
++            static PathType getPath(const State *state1, const State *state2, double radius, unsigned int pathType);
+ 
+         protected:
+             /** \brief Turning radius */
+diff --git a/src/ompl/base/spaces/src/DubinsStateSpace.cpp b/src/ompl/base/spaces/src/DubinsStateSpace.cpp
+index 7309c19..4cdcad8 100644
+--- a/src/ompl/base/spaces/src/DubinsStateSpace.cpp
++++ b/src/ompl/base/spaces/src/DubinsStateSpace.cpp
+@@ -864,3 +864,34 @@ DubinsStateSpace::PathType DubinsStateSpace::getPath(const State *state1, const
+     double alpha = mod2pi(th1 - th), beta = mod2pi(th2 - th);
+     return ::getPath(d, alpha, beta);
+ }
++
++DubinsStateSpace::PathType DubinsStateSpace::getPath(const State *state1, const State *state2, double radius,
++                                                     unsigned int pathType)
++{
++    const auto *s1 = static_cast<const DubinsStateSpace::StateType *>(state1);
++    const auto *s2 = static_cast<const DubinsStateSpace::StateType *>(state2);
++    double x1 = s1->getX(), y1 = s1->getY(), th1 = s1->getYaw();
++    double x2 = s2->getX(), y2 = s2->getY(), th2 = s2->getYaw();
++    double dx = x2 - x1, dy = y2 - y1, d = sqrt(dx * dx + dy * dy) / radius, th = atan2(dy, dx);
++    double alpha = mod2pi(th1 - th), beta = mod2pi(th2 - th);
++    // same special case as ::getPath: identical states are connected by an empty LSL path
++    if (d < DUBINS_EPS && fabs(alpha - beta) < DUBINS_EPS)
++        return pathType == 0 ? PathType(dubinsPathType()[0], 0, d, 0) : PathType();
++    switch (pathType)
++    {
++        case 0:
++            return dubinsLSL(d, alpha, beta);
++        case 1:
++            return dubinsRSR(d, alpha, beta);
++        case 2:
++            return dubinsRSL(d, alpha, beta);
++        case 3:
++            return dubinsLSR(d, alpha, beta);
++        case 4:
++            return dubinsRLR(d, alpha, beta);
++        case 5:
++            return dubinsLRL(d, alpha, beta);
++        default:
++            throw Exception("Invalid Dubins path type");
++    }
++}
+diff --git a/src/ompl/base/spaces/src/OwenStateSpace.cpp b/src/ompl/base/spaces/src/OwenStateSpace.cpp
+index db6ef08..2f11a82 100644
+--- a/src/ompl/base/spaces/src/OwenStateSpace.cpp
++++ b/src/ompl/base/spaces/src/OwenStateSpace.cpp
+@@ -40,6 +40,8 @@
+ #include "ompl/tools/config/MagicConstants.h"
+ #include "ompl/util/Exception.h"
+ #include <boost/math/tools/toms748_solve.hpp>
++#include <algorithm>
++#include <limits>
+ 
+ using namespace ompl::base;
+ 
+@@ -48,10 +50,46 @@ namespace
+     constexpr double twopi = 2. * boost::math::constants::pi<double>();
+ 
+     // tolerance for boost root finding algorithm
+-    const boost::math::tools::eps_tolerance<double> TOLERANCE(20);
++    const boost::math::tools::eps_tolerance<double> TOLERANCE(std::numeric_limits<double>::digits - 3);
+ 
+     // max # iterations for searching for roots
+     constexpr std::uintmax_t MAX_ITER = 32;
++
++    // number of Dubins path types (LSL, RSR, RSL, LSR, RLR, LRL)
++    constexpr unsigned int NUM_DUBINS_PATH_TYPES = 6;
++
++    // Find the smallest x in [lo, hi] with f(x) = 0. f is evaluated at numSteps + 1 evenly spaced points and
++    // the first interval where f changes sign is refined with TOMS 748. The functions we solve here can jump
++    // (a turn angle of a Dubins path wraps around 2π, or the path type stops existing, in which case f is
++    // +max), so a sign change is only accepted if f is actually close to zero at the refined point;
++    // otherwise the search continues with the next interval. Of the final bracket we return the end where
++    // f >= 0: for the functions below this means that the path does not exceed the maximum pitch.
++    template <typename F>
++    std::optional<double> smallestRoot(const F &f, double lo, double hi, unsigned int numSteps, double tolerance)
++    {
++        if (hi <= lo)
++            return {};
++        double a = lo, fa = f(a);
++        if (fa == 0.)
++            return a;
++        for (unsigned int i = 1; i <= numSteps; ++i)
++        {
++            double b = lo + (hi - lo) * i / numSteps, fb = f(b);
++            if ((fa < 0.) != (fb < 0.))
++            {
++                std::uintmax_t iter = MAX_ITER;
++                auto bracket = boost::math::tools::toms748_solve(f, a, b, fa, fb, TOLERANCE, iter);
++                double x = bracket.second, fx = f(x);
++                if (fx < 0.)
++                    fx = f(x = bracket.first);
++                if (fx >= 0. && fx <= tolerance)
++                    return x;
++            }
++            a = b;
++            fa = fb;
++        }
++        return {};
++    }
+ }  // namespace
+ 
+ OwenStateSpace::OwenStateSpace(double turningRadius, double maxPitch)
+@@ -115,62 +153,89 @@ std::optional<OwenStateSpace::PathType> OwenStateSpace::getPath(const State *sta
+         // low altitude path
+         return PathType{path, rho_, dz};
+     }
+-    else if (std::abs(dz) > (len + twopi * rho_) * tanMaxPitch_)
+-    {
+-        // high altitude path
+-        unsigned int k = std::floor((std::abs(dz) / tanMaxPitch_ - len) / (twopi * rho_));
+-        auto radius = rho_;
+-        auto radiusFun = [&, this](double r)
+-        { return (dubinsSpace_.getPath(state1, state2, r).length() + twopi * k) * r * tanMaxPitch_ - std::abs(dz); };
+-        std::uintmax_t iter = MAX_ITER;
+-        auto result = boost::math::tools::bracket_and_solve_root(radiusFun, radius, 2., true, TOLERANCE, iter);
+-        radius = .5 * (result.first + result.second);
+-        // Discontinuities in the Dubins distance and, by extension, radiusFun can cause bracket_and_solve_root to fail.
+-        if (std::abs(radiusFun(radius)) > 1e-5)
+-            return {};
+-        path = dubinsSpace_.getPath(state1, state2, radius);
+-        return PathType{path, radius, dz, k};
+-    }
+ 
+-    // medium altitude path
+-    {
+-        auto zi = dubinsSpace_.allocState()->as<DubinsStateSpace::StateType>();
+-        auto phi = 0.1;
+-        auto phiFun = [&, this](double phi)
+-        {
+-            turn(state1, rho_, phi, zi);
+-            return (std::abs(phi) + dubinsSpace_.getPath(zi, state2).length()) * rho_ * tanMaxPitch_ - std::abs(dz);
+-        };
++    // The remaining cases climb (or descend) at the maximum pitch, so the horizontal length of the path must
++    // be exactly |dz| / tan(maxPitch), and all such paths are equally long. The shortest Dubins distance is not
++    // a continuous function of the parameters we search over below (the optimal path type switches, and path
++    // types appear or disappear), which makes root finding on it unreliable (see issue #1362). Instead, we
++    // solve for each Dubins path type separately, starting with the most promising one, and return the first
++    // solution found.
++    const double horizontalLength = std::abs(dz) / tanMaxPitch_;
++    const double tolerance = 1e-8 * std::max(1., horizontalLength);
++    constexpr double maxLength = std::numeric_limits<double>::max();
++    const auto &pathTypes = DubinsStateSpace::dubinsPathType();
+ 
+-        try
+-        {
+-            std::uintmax_t iter = MAX_ITER;
+-            auto result = boost::math::tools::bracket_and_solve_root(phiFun, phi, 2., true, TOLERANCE, iter);
+-            phi = .5 * (result.first + result.second);
+-            if (std::abs(phiFun(phi)) > 1e-5)
+-                throw std::domain_error("fail");
+-        }
+-        catch (...)
++    if (std::abs(dz) > (len + twopi * rho_) * tanMaxPitch_)
++    {
++        // high altitude path: numTurns full turns of a helix, followed by a Dubins path, both with the same
++        // turn radius r >= rho_, such that r * (dubinsLength(r) + 2π numTurns) = horizontalLength.
++        const auto shortestType = (unsigned int)(path.type_ - pathTypes.data());
++        for (unsigned int i = 0; i < NUM_DUBINS_PATH_TYPES; ++i)
+         {
+-            try
++            // try the type of the shortest path at the minimum turn radius first
++            unsigned int type = (i == 0) ? shortestType : (i <= shortestType ? i - 1 : i);
++            // Use the largest number of turns that is not too many at r = rho_. The path is longer for
++            // r > rho_, so fewer turns would only lead to a solution with a larger radius. If this path type
++            // does not exist at rho_ (it may for larger r), estimate the number of turns from the shortest path.
++            double typeLength = dubinsSpace_.getPath(state1, state2, rho_, type).length();
++            int maxTurns = (int)std::floor(typeLength == maxLength ? (horizontalLength - len) / (twopi * rho_) :
++                                                                     (horizontalLength / rho_ - typeLength) / twopi);
++            // If a turn angle of the Dubins path wraps around from 0 to 2π as r increases, the path length
++            // jumps up by 2πr and the solution is found with one fewer helix turn instead.
++            for (int numTurns = maxTurns; numTurns >= std::max(0, maxTurns - 1); --numTurns)
+             {
+-                std::uintmax_t iter = MAX_ITER;
+-                phi = -.1;
+-                auto result = boost::math::tools::bracket_and_solve_root(phiFun, phi, 2., true, TOLERANCE, iter);
+-                phi = .5 * (result.first + result.second);
+-            }
+-            catch (...)
+-            {
+-                // OMPL_ERROR("this shouldn't be happening!");
+-                return {};
++                auto radiusFun = [&, this](double r)
++                {
++                    double l = dubinsSpace_.getPath(state1, state2, r, type).length();
++                    return l == maxLength ? maxLength : r * (l + twopi * numTurns) - horizontalLength;
++                };
++                // 2π r numTurns <= horizontalLength (or 2π r <= horizontalLength for Dubins paths whose turns add
++                // up to at least a full circle) bounds the radius
++                double maxRadius = horizontalLength / (twopi * std::max(1, numTurns));
++                if (auto radius = smallestRoot(radiusFun, rho_, maxRadius, 8, tolerance))
++                    return PathType{dubinsSpace_.getPath(state1, state2, *radius, type), *radius, dz,
++                                    (unsigned int)numTurns};
+             }
+         }
+-        assert(std::abs(phiFun(phi)) < 1e-5);
+-        turn(state1, rho_, phi, zi);
+-        path = dubinsSpace_.getPath(zi, state2, rho_);
+-        dubinsSpace_.freeState(zi);
+-        return PathType{path, rho_, dz, phi};
++        return {};
+     }
++
++    // medium altitude path: first turn by an angle phi at the minimum turn radius (left if phi > 0, right if
++    // phi < 0), followed by a Dubins path at the minimum turn radius, such that
++    // rho_ * (|phi| + dubinsLength(phi)) = horizontalLength. A full circle brings us back to state1, so
++    // |phi| < 2π.
++    auto zi = dubinsSpace_.allocState();
++    auto findPath = [&, this](unsigned int numSteps) -> std::optional<PathType>
++    {
++        for (double direction : {1., -1.})
++            for (unsigned int type = 0; type < NUM_DUBINS_PATH_TYPES; ++type)
++            {
++                // If the Dubins path starts turning in the same direction, the extra turn just shortens its
++                // first arc and the total length stays the same, so there is no solution for this type.
++                if ((pathTypes[type][0] == DubinsStateSpace::DUBINS_LEFT) == (direction > 0.))
++                    continue;
++                auto phiFun = [&, this](double angle)
++                {
++                    turn(state1, rho_, direction * angle, zi);
++                    double l = dubinsSpace_.getPath(zi, state2, rho_, type).length();
++                    return l == maxLength ? maxLength : rho_ * (angle + l) - horizontalLength;
++                };
++                if (auto angle = smallestRoot(phiFun, 0., twopi, numSteps, tolerance))
++                {
++                    turn(state1, rho_, direction * *angle, zi);
++                    return PathType{dubinsSpace_.getPath(zi, state2, rho_, type), rho_, dz, direction * *angle};
++                }
++            }
++        return {};
++    };
++    // A coarse search finds almost all solutions. A finer one is only needed if a solution lies in a narrow
++    // window between jumps of the path length (or if there is no solution, which happens for some state pairs
++    // that are very close together).
++    auto result = findPath(8);
++    if (!result)
++        result = findPath(64);
++    dubinsSpace_.freeState(zi);
++    return result;
+ }
+ 
+ void OwenStateSpace::turn(const State *from, double turnRadius, double angle, State *state) const
+@@ -267,7 +332,7 @@ void OwenStateSpace::interpolate(const State *from, const State *to, double t, P
+ 
+ double OwenStateSpace::PathType::length() const
+ {
+-    double hlen = turnRadius_ * (path_.length() + twopi * numTurns_ + phi_);
++    double hlen = turnRadius_ * (path_.length() + twopi * numTurns_ + std::abs(phi_));
+     return std::sqrt(hlen * hlen + deltaZ_ * deltaZ_);
+ }
+ 
+diff --git a/tests/base/state_spaces.cpp b/tests/base/state_spaces.cpp
+index e23f15a..08d0476 100644
+--- a/tests/base/state_spaces.cpp
++++ b/tests/base/state_spaces.cpp
+@@ -116,6 +116,57 @@ BOOST_AUTO_TEST_CASE(Owen_Simple)
+     d->sanityChecks();
+ }
+ 
++// Regression test for https://github.com/ompl/ompl/issues/1362: the root finding in OwenStateSpace::getPath
++// used to fail for a large fraction of random state pairs.
++BOOST_AUTO_TEST_CASE(Owen_RandomPairs)
++{
++    const double turnRadius = 1., maxPitch = PI / 6., tanMaxPitch = std::tan(maxPitch);
++    auto space(std::make_shared<base::OwenStateSpace>(turnRadius, maxPitch));
++    base::ScopedState<base::OwenStateSpace> s1(space), s2(space), s(space);
++    RNG rng(1362);
++
++    unsigned int numPaths = 0;
++    for (unsigned int i = 0; i < 2000; ++i)
++    {
++        for (auto *state : {s1.get(), s2.get()})
++        {
++            for (unsigned int j = 0; j < 3; ++j)
++                (*state)[j] = rng.uniformReal(-10., 10.);
++            state->yaw() = rng.uniformReal(-PI, PI);
++        }
++        double dz = s2[2] - s1[2];
++        double dxy = std::hypot(s2[0] - s1[0], s2[1] - s1[1]);
++        auto path = space->getPath(s1.get(), s2.get());
++        if (!path)
++        {
++            // The path types of Owen et al. cannot produce every horizontal length when the start and goal
++            // positions are close together, so a few pairs within 4 turn radii genuinely have no solution.
++            BOOST_CHECK_LT(dxy, 4. * turnRadius);
++            continue;
++        }
++        ++numPaths;
++
++        // The path must end at the goal.
++        space->interpolate(s1.get(), s2.get(), 1. - 1e-12, *path, s.get());
++        BOOST_OMPL_EXPECT_NEAR(s[0], s2[0], 1e-6);
++        BOOST_OMPL_EXPECT_NEAR(s[1], s2[1], 1e-6);
++        BOOST_OMPL_EXPECT_NEAR(s[2], s2[2], 1e-6);
++        BOOST_CHECK_SMALL(std::remainder(s->yaw() - s2->yaw(), 2. * PI), 1e-6);
++
++        // Reference length without any root finding: if the shortest 2D Dubins path is long enough to change
++        // altitude by dz, it is optimal. Otherwise every path has to fly at least |dz| / tan(maxPitch)
++        // horizontally, so |dz| / sin(maxPitch) is a lower bound, and a path at max pitch attains it.
++        double dubinsLength = turnRadius * base::DubinsStateSpace::getPath(s1.get(), s2.get(), turnRadius).length();
++        double reference = std::abs(dz) <= dubinsLength * tanMaxPitch ? std::hypot(dubinsLength, dz) :
++                                                                        std::abs(dz) / std::sin(maxPitch);
++        BOOST_CHECK_CLOSE(path->length(), reference, 1e-4);
++        BOOST_CHECK_CLOSE(space->distance(s1.get(), s2.get()), reference, 1e-4);
++        BOOST_CHECK_GE(path->turnRadius_, turnRadius);
++    }
++    // Before the fix about 1% of these pairs failed; now only a few pairs that are very close together do.
++    BOOST_CHECK_GE(numPaths, 1995u);
++}
++
+ BOOST_AUTO_TEST_CASE(Vana_Simple)
+ {
+     auto d(std::make_shared<base::VanaStateSpace>());
+-- 
+2.43.0
+

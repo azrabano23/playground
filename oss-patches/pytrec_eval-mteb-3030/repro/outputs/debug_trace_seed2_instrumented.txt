@@ -1,0 +1,405 @@
+DBG qid=0 nq=2 max_rel=1 max_rel_levels(before)=0 stale num_rel_levels=0
+DBG   -> num_rel=2 num_rel_levels=2 num_rel_ret=2 max_rel_levels(after)=2
+DBG calc P qid=0 rc=1 v0=1
+DBG calc recall qid=0 rc=1 v0=0.5
+DBG calc ndcg_cut qid=0 rc=1 v0=1
+DBG calc map_cut qid=0 rc=1 v0=0.5
+DBG qid=3 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=3 rc=1 v0=1
+DBG calc recall qid=3 rc=1 v0=0.25
+DBG calc ndcg_cut qid=3 rc=1 v0=1
+DBG calc map_cut qid=3 rc=1 v0=0.25
+DBG qid=8 nq=3 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=3 num_rel_levels=2 num_rel_ret=3 max_rel_levels(after)=2
+DBG calc P qid=8 rc=1 v0=1
+DBG calc recall qid=8 rc=1 v0=0.333333
+DBG calc ndcg_cut qid=8 rc=1 v0=1
+DBG calc map_cut qid=8 rc=1 v0=0.333333
+DBG qid=12 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=12 rc=1 v0=0
+DBG calc recall qid=12 rc=1 v0=0
+DBG calc ndcg_cut qid=12 rc=1 v0=0
+DBG calc map_cut qid=12 rc=1 v0=0
+DBG qid=17 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=17 rc=1 v0=1
+DBG calc recall qid=17 rc=1 v0=0.25
+DBG calc ndcg_cut qid=17 rc=1 v0=1
+DBG calc map_cut qid=17 rc=1 v0=0.25
+DBG qid=22 nq=3 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=3 num_rel_levels=2 num_rel_ret=3 max_rel_levels(after)=2
+DBG calc P qid=22 rc=1 v0=1
+DBG calc recall qid=22 rc=1 v0=0.333333
+DBG calc ndcg_cut qid=22 rc=1 v0=1
+DBG calc map_cut qid=22 rc=1 v0=0.333333
+DBG qid=26 nq=2 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=2 num_rel_levels=2 num_rel_ret=2 max_rel_levels(after)=2
+DBG calc P qid=26 rc=1 v0=1
+DBG calc recall qid=26 rc=1 v0=0.5
+DBG calc ndcg_cut qid=26 rc=1 v0=1
+DBG calc map_cut qid=26 rc=1 v0=0.5
+DBG qid=29 nq=3 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=3 num_rel_levels=2 num_rel_ret=3 max_rel_levels(after)=2
+DBG calc P qid=29 rc=1 v0=1
+DBG calc recall qid=29 rc=1 v0=0.333333
+DBG calc ndcg_cut qid=29 rc=1 v0=1
+DBG calc map_cut qid=29 rc=1 v0=0.333333
+DBG qid=33 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=33 rc=1 v0=1
+DBG calc recall qid=33 rc=1 v0=0.25
+DBG calc ndcg_cut qid=33 rc=1 v0=1
+DBG calc map_cut qid=33 rc=1 v0=0.25
+DBG qid=38 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=38 rc=1 v0=1
+DBG calc recall qid=38 rc=1 v0=0.25
+DBG calc ndcg_cut qid=38 rc=1 v0=1
+DBG calc map_cut qid=38 rc=1 v0=0.25
+DBG qid=43 nq=3 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=3 num_rel_levels=2 num_rel_ret=3 max_rel_levels(after)=2
+DBG calc P qid=43 rc=1 v0=1
+DBG calc recall qid=43 rc=1 v0=0.333333
+DBG calc ndcg_cut qid=43 rc=1 v0=1
+DBG calc map_cut qid=43 rc=1 v0=0.333333
+DBG qid=47 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=47 rc=1 v0=1
+DBG calc recall qid=47 rc=1 v0=0.25
+DBG calc ndcg_cut qid=47 rc=1 v0=1
+DBG calc map_cut qid=47 rc=1 v0=0.25
+DBG qid=52 nq=4 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=4 num_rel_levels=2 num_rel_ret=4 max_rel_levels(after)=2
+DBG calc P qid=52 rc=1 v0=1
+DBG calc recall qid=52 rc=1 v0=0.25
+DBG calc ndcg_cut qid=52 rc=1 v0=1
+DBG calc map_cut qid=52 rc=1 v0=0.25
+DBG qid=57 nq=2 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=2 num_rel_levels=2 num_rel_ret=2 max_rel_levels(after)=2
+DBG calc P qid=57 rc=1 v0=1
+DBG calc recall qid=57 rc=1 v0=0.5
+DBG calc ndcg_cut qid=57 rc=1 v0=1
+DBG calc map_cut qid=57 rc=1 v0=0.5
+DBG qid=60 nq=2 max_rel=1 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG   -> num_rel=2 num_rel_levels=2 num_rel_ret=2 max_rel_levels(after)=2
+DBG calc P qid=60 rc=1 v0=1
+DBG calc recall qid=60 rc=1 v0=0.5
+DBG calc ndcg_cut qid=60 rc=1 v0=1
+DBG calc map_cut qid=60 rc=1 v0=0.5
+DBG qid=63 nq=0 max_rel=140238406040352 max_rel_levels(before)=2 stale num_rel_levels=2
+DBG calc P qid=63 rc=-1 v0=0
+DBG calc recall qid=63 rc=1 v0=0.5
+DBG calc ndcg_cut qid=63 rc=1 v0=1
+DBG calc map_cut qid=63 rc=1 v0=0.5
+DBG qid=64 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=64 rc=-1 v0=0
+DBG calc recall qid=64 rc=1 v0=0.5
+DBG calc ndcg_cut qid=64 rc=1 v0=1
+DBG calc map_cut qid=64 rc=1 v0=0.5
+DBG qid=69 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=69 rc=-1 v0=0
+DBG calc recall qid=69 rc=1 v0=0.5
+DBG calc ndcg_cut qid=69 rc=1 v0=1
+DBG calc map_cut qid=69 rc=1 v0=0.5
+DBG qid=73 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=73 rc=-1 v0=0
+DBG calc recall qid=73 rc=1 v0=0.5
+DBG calc ndcg_cut qid=73 rc=1 v0=1
+DBG calc map_cut qid=73 rc=1 v0=0.5
+DBG qid=79 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=79 rc=-1 v0=0
+DBG calc recall qid=79 rc=1 v0=0.5
+DBG calc ndcg_cut qid=79 rc=1 v0=1
+DBG calc map_cut qid=79 rc=1 v0=0.5
+DBG qid=84 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=84 rc=-1 v0=0
+DBG calc recall qid=84 rc=1 v0=0.5
+DBG calc ndcg_cut qid=84 rc=1 v0=1
+DBG calc map_cut qid=84 rc=1 v0=0.5
+DBG qid=89 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=89 rc=-1 v0=0
+DBG calc recall qid=89 rc=1 v0=0.5
+DBG calc ndcg_cut qid=89 rc=1 v0=1
+DBG calc map_cut qid=89 rc=1 v0=0.5
+DBG qid=92 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=92 rc=-1 v0=0
+DBG calc recall qid=92 rc=1 v0=0.5
+DBG calc ndcg_cut qid=92 rc=1 v0=1
+DBG calc map_cut qid=92 rc=1 v0=0.5
+DBG qid=97 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=97 rc=-1 v0=0
+DBG calc recall qid=97 rc=1 v0=0.5
+DBG calc ndcg_cut qid=97 rc=1 v0=1
+DBG calc map_cut qid=97 rc=1 v0=0.5
+DBG qid=102 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=102 rc=-1 v0=0
+DBG calc recall qid=102 rc=1 v0=0.5
+DBG calc ndcg_cut qid=102 rc=1 v0=1
+DBG calc map_cut qid=102 rc=1 v0=0.5
+DBG qid=108 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=108 rc=-1 v0=0
+DBG calc recall qid=108 rc=1 v0=0.5
+DBG calc ndcg_cut qid=108 rc=1 v0=1
+DBG calc map_cut qid=108 rc=1 v0=0.5
+DBG qid=112 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=112 rc=-1 v0=0
+DBG calc recall qid=112 rc=1 v0=0.5
+DBG calc ndcg_cut qid=112 rc=1 v0=1
+DBG calc map_cut qid=112 rc=1 v0=0.5
+DBG qid=115 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=115 rc=-1 v0=0
+DBG calc recall qid=115 rc=1 v0=0.5
+DBG calc ndcg_cut qid=115 rc=1 v0=1
+DBG calc map_cut qid=115 rc=1 v0=0.5
+DBG qid=119 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=119 rc=-1 v0=0
+DBG calc recall qid=119 rc=1 v0=0.5
+DBG calc ndcg_cut qid=119 rc=1 v0=1
+DBG calc map_cut qid=119 rc=1 v0=0.5
+DBG qid=123 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=123 rc=-1 v0=0
+DBG calc recall qid=123 rc=1 v0=0.5
+DBG calc ndcg_cut qid=123 rc=1 v0=1
+DBG calc map_cut qid=123 rc=1 v0=0.5
+DBG qid=127 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=127 rc=-1 v0=0
+DBG calc recall qid=127 rc=1 v0=0.5
+DBG calc ndcg_cut qid=127 rc=1 v0=1
+DBG calc map_cut qid=127 rc=1 v0=0.5
+DBG qid=131 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=131 rc=-1 v0=0
+DBG calc recall qid=131 rc=1 v0=0.5
+DBG calc ndcg_cut qid=131 rc=1 v0=1
+DBG calc map_cut qid=131 rc=1 v0=0.5
+DBG qid=134 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=134 rc=-1 v0=0
+DBG calc recall qid=134 rc=1 v0=0.5
+DBG calc ndcg_cut qid=134 rc=1 v0=1
+DBG calc map_cut qid=134 rc=1 v0=0.5
+DBG qid=139 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=139 rc=-1 v0=0
+DBG calc recall qid=139 rc=1 v0=0.5
+DBG calc ndcg_cut qid=139 rc=1 v0=1
+DBG calc map_cut qid=139 rc=1 v0=0.5
+DBG qid=142 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=142 rc=-1 v0=0
+DBG calc recall qid=142 rc=1 v0=0.5
+DBG calc ndcg_cut qid=142 rc=1 v0=1
+DBG calc map_cut qid=142 rc=1 v0=0.5
+DBG qid=145 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=145 rc=-1 v0=0
+DBG calc recall qid=145 rc=1 v0=0.5
+DBG calc ndcg_cut qid=145 rc=1 v0=1
+DBG calc map_cut qid=145 rc=1 v0=0.5
+DBG qid=150 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=150 rc=-1 v0=0
+DBG calc recall qid=150 rc=1 v0=0.5
+DBG calc ndcg_cut qid=150 rc=1 v0=1
+DBG calc map_cut qid=150 rc=1 v0=0.5
+DBG qid=153 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=153 rc=-1 v0=0
+DBG calc recall qid=153 rc=1 v0=0.5
+DBG calc ndcg_cut qid=153 rc=1 v0=1
+DBG calc map_cut qid=153 rc=1 v0=0.5
+DBG qid=157 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=157 rc=-1 v0=0
+DBG calc recall qid=157 rc=1 v0=0.5
+DBG calc ndcg_cut qid=157 rc=1 v0=1
+DBG calc map_cut qid=157 rc=1 v0=0.5
+DBG qid=161 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=161 rc=-1 v0=0
+DBG calc recall qid=161 rc=1 v0=0.5
+DBG calc ndcg_cut qid=161 rc=1 v0=1
+DBG calc map_cut qid=161 rc=1 v0=0.5
+DBG qid=164 nq=6 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=164 rc=-1 v0=0
+DBG calc recall qid=164 rc=1 v0=0.5
+DBG calc ndcg_cut qid=164 rc=1 v0=1
+DBG calc map_cut qid=164 rc=1 v0=0.5
+DBG qid=171 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=171 rc=-1 v0=0
+DBG calc recall qid=171 rc=1 v0=0.5
+DBG calc ndcg_cut qid=171 rc=1 v0=1
+DBG calc map_cut qid=171 rc=1 v0=0.5
+DBG qid=174 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=174 rc=-1 v0=0
+DBG calc recall qid=174 rc=1 v0=0.5
+DBG calc ndcg_cut qid=174 rc=1 v0=1
+DBG calc map_cut qid=174 rc=1 v0=0.5
+DBG qid=180 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=180 rc=-1 v0=0
+DBG calc recall qid=180 rc=1 v0=0.5
+DBG calc ndcg_cut qid=180 rc=1 v0=1
+DBG calc map_cut qid=180 rc=1 v0=0.5
+DBG qid=185 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=185 rc=-1 v0=0
+DBG calc recall qid=185 rc=1 v0=0.5
+DBG calc ndcg_cut qid=185 rc=1 v0=1
+DBG calc map_cut qid=185 rc=1 v0=0.5
+DBG qid=190 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=190 rc=-1 v0=0
+DBG calc recall qid=190 rc=1 v0=0.5
+DBG calc ndcg_cut qid=190 rc=1 v0=1
+DBG calc map_cut qid=190 rc=1 v0=0.5
+DBG qid=195 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=195 rc=-1 v0=0
+DBG calc recall qid=195 rc=1 v0=0.5
+DBG calc ndcg_cut qid=195 rc=1 v0=1
+DBG calc map_cut qid=195 rc=1 v0=0.5
+DBG qid=201 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=201 rc=-1 v0=0
+DBG calc recall qid=201 rc=1 v0=0.5
+DBG calc ndcg_cut qid=201 rc=1 v0=1
+DBG calc map_cut qid=201 rc=1 v0=0.5
+DBG qid=205 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=205 rc=-1 v0=0
+DBG calc recall qid=205 rc=1 v0=0.5
+DBG calc ndcg_cut qid=205 rc=1 v0=1
+DBG calc map_cut qid=205 rc=1 v0=0.5
+DBG qid=209 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=209 rc=-1 v0=0
+DBG calc recall qid=209 rc=1 v0=0.5
+DBG calc ndcg_cut qid=209 rc=1 v0=1
+DBG calc map_cut qid=209 rc=1 v0=0.5
+DBG qid=214 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=214 rc=-1 v0=0
+DBG calc recall qid=214 rc=1 v0=0.5
+DBG calc ndcg_cut qid=214 rc=1 v0=1
+DBG calc map_cut qid=214 rc=1 v0=0.5
+DBG qid=218 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=218 rc=-1 v0=0
+DBG calc recall qid=218 rc=1 v0=0.5
+DBG calc ndcg_cut qid=218 rc=1 v0=1
+DBG calc map_cut qid=218 rc=1 v0=0.5
+DBG qid=221 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=221 rc=-1 v0=0
+DBG calc recall qid=221 rc=1 v0=0.5
+DBG calc ndcg_cut qid=221 rc=1 v0=1
+DBG calc map_cut qid=221 rc=1 v0=0.5
+DBG qid=225 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=225 rc=-1 v0=0
+DBG calc recall qid=225 rc=1 v0=0.5
+DBG calc ndcg_cut qid=225 rc=1 v0=1
+DBG calc map_cut qid=225 rc=1 v0=0.5
+DBG qid=229 nq=1 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=229 rc=-1 v0=0
+DBG calc recall qid=229 rc=1 v0=0.5
+DBG calc ndcg_cut qid=229 rc=1 v0=1
+DBG calc map_cut qid=229 rc=1 v0=0.5
+DBG qid=231 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=231 rc=-1 v0=0
+DBG calc recall qid=231 rc=1 v0=0.5
+DBG calc ndcg_cut qid=231 rc=1 v0=1
+DBG calc map_cut qid=231 rc=1 v0=0.5
+DBG qid=234 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=234 rc=-1 v0=0
+DBG calc recall qid=234 rc=1 v0=0.5
+DBG calc ndcg_cut qid=234 rc=1 v0=1
+DBG calc map_cut qid=234 rc=1 v0=0.5
+DBG qid=237 nq=1 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=237 rc=-1 v0=0
+DBG calc recall qid=237 rc=1 v0=0.5
+DBG calc ndcg_cut qid=237 rc=1 v0=1
+DBG calc map_cut qid=237 rc=1 v0=0.5
+DBG qid=239 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=239 rc=-1 v0=0
+DBG calc recall qid=239 rc=1 v0=0.5
+DBG calc ndcg_cut qid=239 rc=1 v0=1
+DBG calc map_cut qid=239 rc=1 v0=0.5
+DBG qid=243 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=243 rc=-1 v0=0
+DBG calc recall qid=243 rc=1 v0=0.5
+DBG calc ndcg_cut qid=243 rc=1 v0=1
+DBG calc map_cut qid=243 rc=1 v0=0.5
+DBG qid=249 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=249 rc=-1 v0=0
+DBG calc recall qid=249 rc=1 v0=0.5
+DBG calc ndcg_cut qid=249 rc=1 v0=1
+DBG calc map_cut qid=249 rc=1 v0=0.5
+DBG qid=255 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=255 rc=-1 v0=0
+DBG calc recall qid=255 rc=1 v0=0.5
+DBG calc ndcg_cut qid=255 rc=1 v0=1
+DBG calc map_cut qid=255 rc=1 v0=0.5
+DBG qid=259 nq=6 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=259 rc=-1 v0=0
+DBG calc recall qid=259 rc=1 v0=0.5
+DBG calc ndcg_cut qid=259 rc=1 v0=1
+DBG calc map_cut qid=259 rc=1 v0=0.5
+DBG qid=266 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=266 rc=-1 v0=0
+DBG calc recall qid=266 rc=1 v0=0.5
+DBG calc ndcg_cut qid=266 rc=1 v0=1
+DBG calc map_cut qid=266 rc=1 v0=0.5
+DBG qid=270 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=270 rc=-1 v0=0
+DBG calc recall qid=270 rc=1 v0=0.5
+DBG calc ndcg_cut qid=270 rc=1 v0=1
+DBG calc map_cut qid=270 rc=1 v0=0.5
+DBG qid=276 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=276 rc=-1 v0=0
+DBG calc recall qid=276 rc=1 v0=0.5
+DBG calc ndcg_cut qid=276 rc=1 v0=1
+DBG calc map_cut qid=276 rc=1 v0=0.5
+DBG qid=279 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=279 rc=-1 v0=0
+DBG calc recall qid=279 rc=1 v0=0.5
+DBG calc ndcg_cut qid=279 rc=1 v0=1
+DBG calc map_cut qid=279 rc=1 v0=0.5
+DBG qid=284 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=284 rc=-1 v0=0
+DBG calc recall qid=284 rc=1 v0=0.5
+DBG calc ndcg_cut qid=284 rc=1 v0=1
+DBG calc map_cut qid=284 rc=1 v0=0.5
+DBG qid=287 nq=6 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=287 rc=-1 v0=0
+DBG calc recall qid=287 rc=1 v0=0.5
+DBG calc ndcg_cut qid=287 rc=1 v0=1
+DBG calc map_cut qid=287 rc=1 v0=0.5
+DBG qid=294 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=294 rc=-1 v0=0
+DBG calc recall qid=294 rc=1 v0=0.5
+DBG calc ndcg_cut qid=294 rc=1 v0=1
+DBG calc map_cut qid=294 rc=1 v0=0.5
+DBG qid=299 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=299 rc=-1 v0=0
+DBG calc recall qid=299 rc=1 v0=0.5
+DBG calc ndcg_cut qid=299 rc=1 v0=1
+DBG calc map_cut qid=299 rc=1 v0=0.5
+DBG qid=305 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=305 rc=-1 v0=0
+DBG calc recall qid=305 rc=1 v0=0.5
+DBG calc ndcg_cut qid=305 rc=1 v0=1
+DBG calc map_cut qid=305 rc=1 v0=0.5
+DBG qid=309 nq=3 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=309 rc=-1 v0=0
+DBG calc recall qid=309 rc=1 v0=0.5
+DBG calc ndcg_cut qid=309 rc=1 v0=1
+DBG calc map_cut qid=309 rc=1 v0=0.5
+DBG qid=313 nq=2 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=313 rc=-1 v0=0
+DBG calc recall qid=313 rc=1 v0=0.5
+DBG calc ndcg_cut qid=313 rc=1 v0=1
+DBG calc map_cut qid=313 rc=1 v0=0.5
+DBG qid=316 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=316 rc=-1 v0=0
+DBG calc recall qid=316 rc=1 v0=0.5
+DBG calc ndcg_cut qid=316 rc=1 v0=1
+DBG calc map_cut qid=316 rc=1 v0=0.5
+DBG qid=322 nq=5 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=322 rc=-1 v0=0
+DBG calc recall qid=322 rc=1 v0=0.5
+DBG calc ndcg_cut qid=322 rc=1 v0=1
+DBG calc map_cut qid=322 rc=1 v0=0.5
+DBG qid=328 nq=6 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=328 rc=-1 v0=0
+DBG calc recall qid=328 rc=1 v0=0.5
+DBG calc ndcg_cut qid=328 rc=1 v0=1
+DBG calc map_cut qid=328 rc=1 v0=0.5
+DBG qid=335 nq=4 max_rel=1 max_rel_levels(before)=140238406040355 stale num_rel_levels=2
+DBG calc P qid=335 rc=-1 v0=0
+DBG calc recall qid=335 rc=1 v0=0.5
+DBG calc ndcg_cut qid=335 rc=1 v0=1
+DBG calc map_cut qid=335 rc=1 v0=0.5

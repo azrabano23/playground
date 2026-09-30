@@ -1,0 +1,23 @@
+   Compiling nautilus-model v0.65.0 (/home/user/oss3/nautilus_base/crates/model)
+    Finished `bench` profile [optimized + debuginfo] target(s) in 6.44s
+     Running benches/book_l2_criterion.rs (/home/user/oss3/target-shared/release/deps/book_l2_criterion-8bb80d501d9f8f27)
+Benchmarking l2_mbp_delta_stream/apply_delta/10
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Warming up for 3.0000 s
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Collecting 100 samples in estimated 5.0625 s (600 iterations)
+Benchmarking l2_mbp_delta_stream/apply_delta/10: Analyzing
+l2_mbp_delta_stream/apply_delta/10
+                        time:   [9.7804 ms 9.9761 ms 10.182 ms]
+                        thrpt:  [9.8215 Melem/s 10.024 Melem/s 10.225 Melem/s]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+Benchmarking l2_mbp_delta_stream/apply_delta/100
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Warming up for 3.0000 s
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Collecting 100 samples in estimated 5.4830 s (500 iterations)
+Benchmarking l2_mbp_delta_stream/apply_delta/100: Analyzing
+l2_mbp_delta_stream/apply_delta/100
+                        time:   [10.872 ms 11.075 ms 11.305 ms]
+                        thrpt:  [8.8459 Melem/s 9.0299 Melem/s 9.1983 Melem/s]
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+

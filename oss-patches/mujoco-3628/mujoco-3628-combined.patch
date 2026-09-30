@@ -1,0 +1,527 @@
+diff --git a/doc/changelog.rst b/doc/changelog.rst
+index a055dde..d4aec3f 100644
+--- a/doc/changelog.rst
++++ b/doc/changelog.rst
+@@ -24,6 +24,16 @@ General
+ - Flex bending and stretching now include the motion and reaction forces of articulated vertex attachments. The discrete
+   integrator supports these attachments with the CG solver; fixed and independent XYZ-slide attachments retain their
+   optimized assembly. Elastic flexes attached to mocap bodies produce a compiler error.
++- The CG and Newton linesearch now brackets at the constraint zone boundary nearest the bracket midpoint (e.g. where a
++  contact crosses the elliptic cone boundary), and skips Newton candidates that fall outside the bracket. With elliptic
++  cones and a large :ref:`impratio<option-impratio>`, the linesearch could exhaust
++  :ref:`ls_iterations<option-ls_iterations>` without improvement, ending the solve at a non-minimizer (:issue:`3628`).
++- The linesearch gradient tolerance is now floored at the rounding noise of the linesearch derivative. With
++  :ref:`tolerance<option-tolerance>` set to 0, or in single precision, the linesearch no longer exhausts
++  :ref:`ls_iterations<option-ls_iterations>` chasing noise.
++- Added the warning ``mjWARN_LINESEARCH``, raised when a CG or Newton linesearch uses all
++  :ref:`ls_iterations<option-ls_iterations>`. A linesearch that runs out of evaluations without improvement, which ends
++  the solve, is now reported as a solver iteration with zero improvement in :ref:`mjSolverStat`.
+ 
+ Version 3.14.0 (September 22, 2026)
+ -----------------------------------
+diff --git a/doc/includes/references.h b/doc/includes/references.h
+index 4d55f8e..a2ef511 100644
+--- a/doc/includes/references.h
++++ b/doc/includes/references.h
+@@ -2822,6 +2822,7 @@ typedef enum mjtWarning {           // warning types
+   mjWARN_BADQVEL,                   // bad number in qvel
+   mjWARN_BADQACC,                   // bad number in qacc
+   mjWARN_BADCTRL,                   // bad number in ctrl
++  mjWARN_LINESEARCH,                // linesearch used all ls_iterations
+ 
+   mjNWARNING                        // number of warnings
+ } mjtWarning;
+diff --git a/include/mujoco/mjtype.h b/include/mujoco/mjtype.h
+index 2b01928..dae4692 100644
+--- a/include/mujoco/mjtype.h
++++ b/include/mujoco/mjtype.h
+@@ -562,6 +562,7 @@ typedef enum mjtWarning {           // warning types
+   mjWARN_BADQVEL,                   // bad number in qvel
+   mjWARN_BADQACC,                   // bad number in qacc
+   mjWARN_BADCTRL,                   // bad number in ctrl
++  mjWARN_LINESEARCH,                // linesearch used all ls_iterations
+ 
+   mjNWARNING                        // number of warnings
+ } mjtWarning;
+diff --git a/python/mujoco/introspect/enums.py b/python/mujoco/introspect/enums.py
+index 2dd23f8..d6d7c19 100644
+--- a/python/mujoco/introspect/enums.py
++++ b/python/mujoco/introspect/enums.py
+@@ -601,7 +601,8 @@ ENUMS: Mapping[str, EnumDecl] = dict([
+              ('mjWARN_BADQVEL', 4),
+              ('mjWARN_BADQACC', 5),
+              ('mjWARN_BADCTRL', 6),
+-             ('mjNWARNING', 7),
++             ('mjWARN_LINESEARCH', 7),
++             ('mjNWARNING', 8),
+          ]),
+      )),
+     ('mjtTimer',
+diff --git a/src/engine/engine_forward.c b/src/engine/engine_forward.c
+index 3887023..e92528e 100644
+--- a/src/engine/engine_forward.c
++++ b/src/engine/engine_forward.c
+@@ -1208,6 +1208,21 @@ static void mj_discreteGyro(const mjModel* m, mjData* d) {
+ }
+ 
+ 
++// warn if a CG or Newton linesearch used all ls_iterations; checked from the solver statistics
++// after the solve, since islands may be solved in parallel
++static void checkLinesearch(const mjModel* m, mjData* d, int nisland) {
++  for (int island=0; island < mjMIN(nisland, mjNISLAND); island++) {
++    int niter = mjMIN(d->solver_niter[island], mjNSOLVER);
++    for (int i=0; i < niter; i++) {
++      if (d->solver[island*mjNSOLVER + i].neval >= m->opt.ls_iterations) {
++        mj_warning(d, mjWARN_LINESEARCH, m->opt.ls_iterations);
++        return;
++      }
++    }
++  }
++}
++
++
+ // compute efc_b, efc_force, qfrc_constraint; update qacc
+ static void fwdConstraint(const mjModel* m, mjData* d, mjtSolver solver, int flg_island) {
+   TM_START;
+@@ -1301,6 +1316,11 @@ static void fwdConstraint(const mjModel* m, mjData* d, mjtSolver solver, int flg
+     }
+   }
+ 
++  // primal solvers: warn if a linesearch used all its evaluations
++  if (solver != mjSOL_PGS) {
++    checkLinesearch(m, d, islands_supported ? nisland : 1);
++  }
++
+   // dual solvers: map efc_force to joint space (always monolithic)
+   if (solver == mjSOL_PGS || m->opt.noslip_iterations > 0) {
+     mj_dualFinish(m, d);
+diff --git a/src/engine/engine_solver.c b/src/engine/engine_solver.c
+index 274f90f..0846c58 100644
+--- a/src/engine/engine_solver.c
++++ b/src/engine/engine_solver.c
+@@ -14,6 +14,7 @@
+ 
+ #include "engine/engine_solver.h"
+ 
++#include <float.h>
+ #include <stddef.h>
+ #include <stdint.h>
+ #include <string.h>
+@@ -1116,6 +1117,7 @@ typedef struct {
+   int LSiter;             // number of linesearch iterations
+   int LSresult;           // linesearch result
+   mjtNum LSslope;         // linesearch slope at solution
++  mjtNum LSnoise[2];      // derivative terms magnitude at alpha: LSnoise[0] + |alpha|*LSnoise[1]
+ } mjPrimalContext;
+ 
+ 
+@@ -1568,9 +1570,14 @@ static void PrimalPrepare(mjPrimalContext* ctx) {
+ 
+   // Gauss: alpha^2*0.5*v'*M*v + alpha*v'*(Ma-qfrc_smooth) + 0.5*(a-qacc_smooth)'*(Ma-qfrc_smooth)
+   //  quadGauss[0] already computed in PrimalUpdateConstraint
+-  ctx->quadGauss[1] = mju_dot(v, ctx->Ma, nv) - mju_dot(ctx->qfrc_smooth, v, nv);
++  mjtNum vMa = mju_dot(v, ctx->Ma, nv), vqfrc = mju_dot(ctx->qfrc_smooth, v, nv);
++  ctx->quadGauss[1] = vMa - vqfrc;
+   ctx->quadGauss[2] = 0.5*mju_dot(v, ctx->Mv, nv);
+ 
++  // magnitude of the terms summed into the linesearch derivative, bounds its rounding error
++  ctx->LSnoise[0] = mju_abs(vMa) + mju_abs(vqfrc);
++  ctx->LSnoise[1] = 2*ctx->quadGauss[2];
++
+   // process constraints
+   for (int i=0; i < nefc; i++) {
+     // pointers to numeric data
+@@ -1633,6 +1640,9 @@ static void PrimalPrepare(mjPrimalContext* ctx) {
+     // apply scaling
+     quad[0] *= 0.5;
+     quad[2] *= 0.5;
++
++    ctx->LSnoise[0] += mju_abs(quad[1]);
++    ctx->LSnoise[1] += 2*quad[2];
+   }
+ }
+ 
+@@ -1936,9 +1946,101 @@ static void PrimalEval(mjPrimalContext* ctx, mjPrimalPnt* p) {
+ }
+ 
+ 
++// roots of a*x^2 + 2*b*x + c in (lo, hi) that satisfy s0 + s1*x >= 0: keep the nearest to target
++static void kinkRoots(mjtNum a, mjtNum b, mjtNum c, mjtNum s0, mjtNum s1,
++                      mjtNum lo, mjtNum hi, mjtNum target, mjtNum* best) {
++  mjtNum root[2];
++  int nroot = 0;
++
++  // linear
++  if (mju_abs(a) < mjMINVAL) {
++    if (mju_abs(b) >= mjMINVAL) {
++      root[nroot++] = -c / (2*b);
++    }
++  }
++
++  // quadratic: numerically stable form
++  else {
++    mjtNum disc = b*b - a*c;
++    if (disc >= 0) {
++      mjtNum q = -(b + (b < 0 ? -mju_sqrt(disc) : mju_sqrt(disc)));
++      root[nroot++] = q / a;
++      if (mju_abs(q) >= mjMINVAL) {
++        root[nroot++] = c / q;
++      }
++    }
++  }
++
++  for (int k=0; k < nroot; k++) {
++    mjtNum x = root[k];
++    if (lo < x && x < hi && s0 + s1*x >= 0 && mju_abs(x - target) < mju_abs(*best - target)) {
++      *best = x;
++    }
++  }
++}
++
++
++// the linesearch cost is piecewise smooth: its curvature jumps where a constraint changes zone
++// (inequality active/inactive, friction loss quadratic/linear, elliptic cone top/middle/bottom);
++// find the zone boundary in (lo, hi) nearest to target, return 0 if there is none
++static int PrimalKink(const mjPrimalContext* ctx, mjtNum lo, mjtNum hi, mjtNum target,
++                      mjtNum* kink) {
++  int ne = ctx->ne, nf = ctx->nf, nefc = ctx->nefc;
++  mjtNum best = mjMAXVAL;
++
++  for (int i=ne; i < nefc; i++) {
++    mjtNum start = ctx->Jaref[i], dir = ctx->Jv[i];
++
++    // friction loss: start + alpha*dir = -Rf or +Rf
++    if (i < ne + nf) {
++      mjtNum Rf = ctx->efc_R[i]*ctx->efc_frictionloss[i];
++      kinkRoots(0, 0.5*dir, start - Rf, 0, 0, lo, hi, target, &best);
++      kinkRoots(0, 0.5*dir, start + Rf, 0, 0, lo, hi, target, &best);
++    }
++
++    // elliptic cone, with N = U0 + alpha*V0 and T^2 = UU + 2*alpha*UV + alpha^2*VV:
++    //   top/middle: N = mu*T, N >= 0;  middle/bottom: mu*N = -T, N <= 0
++    else if (ctx->efc_type[i] == mjCNSTR_CONTACT_ELLIPTIC) {
++      const mjtNum* quad = ctx->quad + 3*i;
++      const mjContact* con = ctx->contact + ctx->efc_id[i];
++      mjtNum U0 = quad[3], V0 = quad[4], UU = quad[5], UV = quad[6], VV = quad[7];
++      mjtNum mu2 = con->mu*con->mu;
++      kinkRoots(V0*V0 - mu2*VV, U0*V0 - mu2*UV, U0*U0 - mu2*UU, U0, V0, lo, hi, target, &best);
++      kinkRoots(mu2*V0*V0 - VV, mu2*U0*V0 - UV, mu2*U0*U0 - UU, -U0, -V0, lo, hi, target, &best);
++      i += con->dim - 1;
++    }
++
++    // limit, pyramidal or frictionless contact: start + alpha*dir = 0
++    else {
++      kinkRoots(0, 0.5*dir, start, 0, 0, lo, hi, target, &best);
++    }
++  }
++
++  if (best == mjMAXVAL) {
++    return 0;
++  }
++  *kink = best;
++  return 1;
++}
++
++
++// machine epsilon of mjtNum
++#ifdef mjUSESINGLE
++  #define mjLS_EPS FLT_EPSILON
++#else
++  #define mjLS_EPS DBL_EPSILON
++#endif
++
++// gradient tolerance at alpha, floored at the rounding noise of the derivative: below it the
++// sign of the derivative is not resolved and further bracketing only chases noise
++static mjtNum LStol(const mjPrimalContext* ctx, mjtNum gtol, mjtNum alpha) {
++  return mju_max(gtol, mjLS_EPS*(ctx->LSnoise[0] + mju_abs(alpha)*ctx->LSnoise[1]));
++}
++
++
+ // update bracket point given 3 candidate points
+-static int updateBracket(mjPrimalContext* ctx,
+-                         mjPrimalPnt* p, const mjPrimalPnt candidates[3], mjPrimalPnt* pnext) {
++static int updateBracket(mjPrimalContext* ctx, mjPrimalPnt* p, const mjPrimalPnt candidates[3],
++                         mjPrimalPnt* pnext, mjtNum other) {
+   int flag = 0;
+   for (int i=0; i < 3; i++) {
+     // negative deriv
+@@ -1959,7 +2061,14 @@ static int updateBracket(mjPrimalContext* ctx,
+   // compute next point if updated
+   if (flag) {
+     pnext->alpha = p->alpha - p->deriv[0]/p->deriv[1];
+-    PrimalEval(ctx, pnext);
++
++    // the derivative is monotone: a Newton point outside the bracket cannot improve on its ends,
++    // skip the evaluation (e.g. when the step crosses a zone boundary with a curvature jump)
++    if (mju_min(p->alpha, other) < pnext->alpha && pnext->alpha < mju_max(p->alpha, other)) {
++      PrimalEval(ctx, pnext);
++    } else {
++      *pnext = *p;
++    }
+   }
+ 
+   return flag;
+@@ -2020,7 +2129,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+   PrimalEval(ctx, &p1);
+ 
+   // check for initial convergence
+-  if (mju_abs(p1.deriv[0]) < gtol && (p1.alpha == 0 || p1.cost < 0)) {
++  if (mju_abs(p1.deriv[0]) < LStol(ctx, gtol, p1.alpha) && (p1.alpha == 0 || p1.cost < 0)) {
+     if (p1.alpha == 0) {
+       ctx->LSresult = 2;  // no improvement, initial convergence
+     } else {
+@@ -2071,7 +2180,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+   // one-sided search
+   p2 = p0;
+   int p2update = 1;
+-  while (p1.deriv[0]*dir <= -gtol && ctx->LSiter < ls_iterations) {
++  while (p1.deriv[0]*dir <= -LStol(ctx, gtol, p1.alpha) && ctx->LSiter < ls_iterations) {
+     // save current
+     p2 = p1;
+     p2update = 1;
+@@ -2081,7 +2190,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     PrimalEval(ctx, &p1);
+ 
+     // check for convergence
+-    if (mju_abs(p1.deriv[0]) < gtol && p1.cost < 0) {
++    if (mju_abs(p1.deriv[0]) < LStol(ctx, gtol, p1.alpha) && p1.cost < 0) {
+       ctx->LSslope = mju_abs(p1.deriv[0])*slopescl;
+       *improvement = -p1.cost;
+       return p1.alpha;                          // SUCCESS
+@@ -2111,8 +2220,12 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+ 
+   // bracketed search
+   while (ctx->LSiter < ls_iterations) {
+-    // evaluate at midpoint
+-    pmid.alpha = 0.5*(p1.alpha + p2.alpha);
++    // evaluate at the zone boundary nearest to the midpoint, or at the midpoint if the bracket
++    // contains none: Newton steps from the bracket ends use the curvature on their side of a
++    // boundary, and stall when it jumps (e.g. elliptic cones with large impratio)
++    mjtNum lo = mju_min(p1.alpha, p2.alpha), hi = mju_max(p1.alpha, p2.alpha);
++    pmid.alpha = 0.5*(lo + hi);
++    PrimalKink(ctx, lo, hi, pmid.alpha, &pmid.alpha);
+     PrimalEval(ctx, &pmid);
+ 
+     // make list of candidates
+@@ -2122,7 +2235,7 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     mjtNum bestcost = 0;
+     int bestind = -1;
+     for (int i=0; i < 3; i++) {
+-      if (mju_abs(candidates[i].deriv[0]) < gtol &&
++      if (mju_abs(candidates[i].deriv[0]) < LStol(ctx, gtol, candidates[i].alpha) &&
+           (bestind == -1 || candidates[i].cost < bestcost)) {
+         bestcost = candidates[i].cost;
+         bestind = i;
+@@ -2135,8 +2248,8 @@ static mjtNum PrimalSearch(mjPrimalContext* ctx, mjtNum tolerance, mjtNum ls_ite
+     }
+ 
+     // update brackets
+-    int b1 = updateBracket(ctx, &p1, candidates, &p1next);
+-    int b2 = updateBracket(ctx, &p2, candidates, &p2next);
++    int b1 = updateBracket(ctx, &p1, candidates, &p1next, p2.alpha);
++    int b2 = updateBracket(ctx, &p2, candidates, &p2next, p1.alpha);
+ 
+     // no update possible: numerical accuracy reached, use midpoint
+     if (!b1 && !b2) {
+@@ -2891,6 +3004,13 @@ static void mj_solPrimal(const mjModel* m, mjData* d, int island, int maxiter, i
+ 
+     // no improvement: done
+     if (alpha == 0) {
++      // the linesearch ran out of evaluations: record it as an iteration without improvement, so
++      // that the failure is visible in the statistics and can be warned about
++      if (ctx.LSiter >= m->opt.ls_iterations) {
++        saveStats(m, d, island, iter, 0, scale * mju_norm(ctx.grad, nv), ctx.LSslope,
++                  ctx.nactive, 0, ctx.LSiter, ctx.nupdate);
++        iter++;
++      }
+       break;
+     }
+ 
+diff --git a/src/engine/engine_util_misc.c b/src/engine/engine_util_misc.c
+index f78a8d6..85a7d67 100644
+--- a/src/engine/engine_util_misc.c
++++ b/src/engine/engine_util_misc.c
+@@ -2018,6 +2018,11 @@ const char* mju_warningText(int warning, size_t info) {
+                info);
+     break;
+ 
++  case mjWARN_LINESEARCH:
++    mjSNPRINTF(str, "Linesearch used all %zu ls_iterations, the constraint solution may be "
++               "inaccurate. Increase ls_iterations.", info);
++    break;
++
+   default:
+     mjSNPRINTF(str, "Unknown warning type %d.", warning);
+   }
+diff --git a/test/engine/engine_solver_test.cc b/test/engine/engine_solver_test.cc
+index 5792dfd..8521381 100644
+--- a/test/engine/engine_solver_test.cc
++++ b/test/engine/engine_solver_test.cc
+@@ -765,6 +765,133 @@ TEST_F(SolverTest, ConeFoldEquivalent) {
+   }
+ }
+ 
++// State from GitHub issue #3628: a free box on a plane with elliptic cones and
++// impratio=10, whose second Newton linesearch crosses the cone boundary.
++constexpr char kIssue3628Xml[] = R"(
++<mujoco>
++  <option timestep="0.0025" cone="elliptic" impratio="10"
++          integrator="implicitfast" iterations="100" tolerance="1e-8"/>
++  <worldbody>
++    <geom type="plane" size="5 5 .1"/>
++    <body pos="0 0 .3">
++      <freejoint/>
++      <geom type="box" size=".2 .1 .05" mass="5"/>
++    </body>
++  </worldbody>
++</mujoco>
++)";
++
++// set the issue's state and solve, return qacc
++std::vector<mjtNum> SolveIssue3628(const mjModel* model, mjData* data) {
++  const mjtNum qpos[7] = {-0.38228398123211904, -1.5617372196006747,
++                          0.14420735808017446,  -0.3039178177313174,
++                          0.6782960782869877,   -0.6545711847046525,
++                          -0.1381483058176044};
++  const mjtNum qvel[6] = {-2.5320433011146646, 0.4435273997725518,
++                          -3.833483970428372,  20.58784610148961,
++                          -4.891237201965733,  -1.521169201653485};
++  const mjtNum qacc_warmstart[6] = {196.2178511861834,  185.09984762860262,
++                                    456.16231234940415, -2622.9781161564592,
++                                    1990.857671015227,  -729.4643685817738};
++  mj_resetData(model, data);
++  mju_copy(data->qpos, qpos, 7);
++  mju_copy(data->qvel, qvel, 6);
++  mju_copy(data->qacc_warmstart, qacc_warmstart, 6);
++  mj_forward(model, data);
++  return std::vector<mjtNum>(data->qacc, data->qacc + model->nv);
++}
++
++// With elliptic cones and a large impratio, the curvature of the linesearch
++// cost jumps by orders of magnitude where a contact crosses the cone boundary.
++// Newton steps from the bracket ends overshoot across the jump, and this state
++// needed 23 evaluations by bisection: with ls_iterations=20 the search returned
++// no improvement and the solver stopped at a non-minimizer, a fixed point of
++// restarting from its own qacc.
++TEST_F(SolverTest, EllipticLineSearchCrossesConeBoundary) {
++  char error[1024];
++  MjModelPtr model = LoadModelFromString(kIssue3628Xml, error, sizeof(error));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  MjDataPtr data = MakeData(model);
++
++  model->opt.ls_iterations = 200;
++  std::vector<mjtNum> reference = SolveIssue3628(model.get(), data.get());
++  model->opt.ls_iterations = 20;
++  std::vector<mjtNum> qacc = SolveIssue3628(model.get(), data.get());
++  ASSERT_EQ(data->ncon, 1);
++
++  // every linesearch converges within its budget
++  int niter = std::min(data->solver_niter[0], mjNSOLVER);
++  for (int i = 0; i < niter; i++) {
++    EXPECT_LT(data->solver[i].neval, 20) << "iteration " << i;
++  }
++
++  // the solution matches the one found with a large linesearch budget
++  for (int i = 0; i < model->nv; i++) {
++    EXPECT_THAT(qacc[i], MjNear(reference[i], 1e-6, 1e-1)) << "dof " << i;
++  }
++}
++
++// A linesearch that uses all ls_iterations raises mjWARN_LINESEARCH; one that
++// runs out without improvement, ending the solve, is recorded as an iteration.
++TEST_F(SolverTest, LineSearchExhaustedWarning) {
++  mock_warning_handler.ExpectWarnings("Linesearch used all 5 ls_iterations");
++  char error[1024];
++  MjModelPtr model = LoadModelFromString(kIssue3628Xml, error, sizeof(error));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  MjDataPtr data = MakeData(model);
++
++  // too small a budget for the second linesearch
++  model->opt.ls_iterations = 5;
++  SolveIssue3628(model.get(), data.get());
++  int niter = data->solver_niter[0];
++  ASSERT_GT(niter, 0);
++  ASSERT_LE(niter, mjNSOLVER);
++  EXPECT_GE(data->solver[niter - 1].neval, 5);
++  EXPECT_EQ(data->solver[niter - 1].improvement, 0);
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].number, 1);
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].lastinfo, 5);
++
++  // default budget: no warning
++  model->opt.ls_iterations = 50;
++  SolveIssue3628(model.get(), data.get());
++  EXPECT_EQ(data->warning[mjWARN_LINESEARCH].number, 0);
++}
++
++// With tolerance=0 (or a tolerance below what the precision resolves) the
++// linesearch cannot meet its gradient tolerance: it used to exhaust
++// ls_iterations at nearly every iteration, chasing rounding noise. The
++// tolerance is floored at the rounding noise of the linesearch derivative.
++TEST_F(SolverTest, LineSearchStopsAtRoundingNoise) {
++  const std::string xml_path = GetTestDataFilePath(kHumanoidPath);
++  char error[1024];
++  MjModelPtr model(mj_loadXML(xml_path.c_str(), nullptr, error, sizeof(error)));
++  ASSERT_THAT(model.get(), NotNull()) << error;
++  model->opt.solver = mjSOL_NEWTON;
++  model->opt.tolerance = 0;
++
++  for (mjtCone cone : {mjCONE_PYRAMIDAL, mjCONE_ELLIPTIC}) {
++    model->opt.cone = cone;
++    MjDataPtr data = MakeData(model);
++    mj_resetDataKeyframe(model.get(), data.get(), 0);
++    int nsearch = 0, nexhausted = 0;
++    for (int step = 0; step < 50; step++) {
++      mj_step(model.get(), data.get());
++      int nisland = max(1, data->nisland);
++      for (int island = 0; island < std::min(nisland, mjNISLAND); island++) {
++        int niter = std::min(data->solver_niter[island], mjNSOLVER);
++        for (int i = 0; i < niter; i++) {
++          const mjSolverStat& stat = data->solver[island * mjNSOLVER + i];
++          nsearch++;
++          nexhausted += stat.neval >= model->opt.ls_iterations;
++        }
++      }
++    }
++    EXPECT_GT(nsearch, 0);
++    EXPECT_EQ(nexhausted, 0)
++        << "cone: " << (cone == mjCONE_ELLIPTIC ? "elliptic" : "pyramidal");
++  }
++}
++
+ // A chain of thin capsules whose tip is connected to a slider: the connect
+ // fills H = M + J'*D*J, and once the chain sags, the twist pivots of the
+ // reverse factorization (the capsules' tiny axial inertia) are five orders of
+diff --git a/unity/Runtime/Bindings/MjBindings.cs b/unity/Runtime/Bindings/MjBindings.cs
+index b776d12..b19a019 100644
+--- a/unity/Runtime/Bindings/MjBindings.cs
++++ b/unity/Runtime/Bindings/MjBindings.cs
+@@ -512,7 +512,8 @@ public enum mjtWarning : int{
+   mjWARN_BADQVEL = 4,
+   mjWARN_BADQACC = 5,
+   mjWARN_BADCTRL = 6,
+-  mjNWARNING = 7,
++  mjWARN_LINESEARCH = 7,
++  mjNWARNING = 8,
+ }
+ public enum mjtTimer : int{
+   mjTIMER_STEP = 0,
+@@ -5707,6 +5708,7 @@ public unsafe struct mjData_ {
+   public mjWarningStat_ warning4;
+   public mjWarningStat_ warning5;
+   public mjWarningStat_ warning6;
++  public mjWarningStat_ warning7;
+   public mjTimerStat_ timer0;
+   public mjTimerStat_ timer1;
+   public mjTimerStat_ timer2;
+diff --git a/wasm/codegen/generated/bindings.cc b/wasm/codegen/generated/bindings.cc
+index 26bad0f..a62d20e 100644
+--- a/wasm/codegen/generated/bindings.cc
++++ b/wasm/codegen/generated/bindings.cc
+@@ -4507,6 +4507,7 @@ EMSCRIPTEN_BINDINGS(mujoco_bindings) {
+     .value("mjWARN_BADQVEL", mjWARN_BADQVEL)
+     .value("mjWARN_BADQACC", mjWARN_BADQACC)
+     .value("mjWARN_BADCTRL", mjWARN_BADCTRL)
++    .value("mjWARN_LINESEARCH", mjWARN_LINESEARCH)
+     .value("mjNWARNING", mjNWARNING);
+   enum_<mjtWrap>("mjtWrap")
+     .value("mjWRAP_NONE", mjWRAP_NONE)

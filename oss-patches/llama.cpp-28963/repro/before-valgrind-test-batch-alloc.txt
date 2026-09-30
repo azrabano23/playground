@@ -1,0 +1,155 @@
+==17996== Memcheck, a memory error detector
+==17996== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==17996== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==17996== Command: ./build/bin/test-batch-alloc
+==17996== 
+==17996== Invalid read of size 4
+==17996==    at 0x4ECBB2B: llama_batch_compat::init(llama_batch_ext&, llama_batch const&, unsigned long) (llama-batch.cpp:1286)
+==17996==    by 0x12A2F2: operator() (test-batch-alloc.cpp:972)
+==17996==    by 0x12A2F2: operator() (testing.h:145)
+==17996==    by 0x12A2F2: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
+==17996==    by 0x12A2F2: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
+==17996==    by 0x12A2F2: test_compat(testing&) (test-batch-alloc.cpp:951)
+==17996==    by 0x13BCE5: operator() (testing.h:145)
+==17996==    by 0x13BCE5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
+==17996==    by 0x13BCE5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
+==17996==    by 0x11B5F1: main (test-batch-alloc.cpp:1096)
+==17996==  Address 0x6040c4c is 0 bytes after a block of size 12 alloc'd
+==17996==    at 0x4846828: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==17996==    by 0x4EC55F1: llama_batch_init (llama-batch.cpp:997)
+==17996==    by 0x12A22A: operator() (test-batch-alloc.cpp:960)
+==17996==    by 0x12A22A: operator() (testing.h:145)
+==17996==    by 0x12A22A: run_with_exceptions<testing::test<test_compat(testing&)::<lambda(testing&)> >(const std::string&, test_compat(testing&)::<lambda(testing&)>)::<lambda()> > (testing.h:68)
+==17996==    by 0x12A22A: test<test_compat(testing&)::<lambda(testing&)> > (testing.h:145)
+==17996==    by 0x12A22A: test_compat(testing&) (test-batch-alloc.cpp:951)
+==17996==    by 0x13BCE5: operator() (testing.h:145)
+==17996==    by 0x13BCE5: run_with_exceptions<testing::test<void (*)(testing&)>(const std::string&, void (*)(testing&))::<lambda()> > (testing.h:68)
+==17996==    by 0x13BCE5: void testing::test<void (*)(testing&)>(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, void (*)(testing&)) (testing.h:145)
+==17996==    by 0x11B5F1: main (test-batch-alloc.cpp:1096)
+==17996== 
+init
+  rejects_n_seq_max_too_large
+  rejects_n_seq_max_too_large (1 assertion(s))                                  [PASS]
+  rejects_invalid_token
+  rejects_invalid_token (3 assertion(s))                                        [PASS]
+  rejects_invalid_seq_id
+  rejects_invalid_seq_id (4 assertion(s))                                       [PASS]
+  copies_pos_seq_output
+  copies_pos_seq_output (26 assertion(s))                                       [PASS]
+  output_all
+  output_all (2 assertion(s))                                                   [PASS]
+  explicit_logits
+  explicit_logits (9 assertion(s))                                              [PASS]
+  pos_after_memory
+  pos_after_memory (3 assertion(s))                                             [PASS]
+  pos_continuity_with_memory
+  pos_continuity_with_memory (3 assertion(s))                                   [PASS]
+  rejects_non_continuous_positions
+  rejects_non_continuous_positions (1 assertion(s))                             [PASS]
+  rejects_decreasing_positions
+  rejects_decreasing_positions (1 assertion(s))                                 [PASS]
+  allows_equal_positions_in_seq
+  allows_equal_positions_in_seq (1 assertion(s))                                [PASS]
+  rejects_coupled_diverged_seqs
+  rejects_coupled_diverged_seqs (2 assertion(s))                                [PASS]
+init (56 assertion(s))                                                          [PASS]
+content_types
+  token_and_embd_together
+  token_and_embd_together (10 assertion(s))                                     [PASS]
+  rejects_mixed_content_types
+  rejects_mixed_content_types (1 assertion(s))                                  [PASS]
+  rejects_neither_token_nor_embd
+  rejects_neither_token_nor_embd (1 assertion(s))                               [PASS]
+  rejects_embd_size_mismatch
+  rejects_embd_size_mismatch (5 assertion(s))                                   [PASS]
+  rejects_double_embd
+  rejects_double_embd (1 assertion(s))                                          [PASS]
+  encoder_width
+  encoder_width (5 assertion(s))                                                [PASS]
+  rejects_mixing_widths
+  rejects_mixing_widths (1 assertion(s))                                        [PASS]
+content_types (24 assertion(s))                                                 [PASS]
+compat
+  token_batch_explicit_fields
+  token_batch_explicit_fields (27 assertion(s))                                 [PASS]
+  defaults_for_null_fields
+  defaults_for_null_fields (14 assertion(s))                                    [PASS]
+  auto_pos_starts_at_zero_without_memory
+  auto_pos_starts_at_zero_without_memory (2 assertion(s))                       [PASS]
+  auto_pos_is_tracked_per_seq
+  auto_pos_is_tracked_per_seq (4 assertion(s))                                  [PASS]
+  embd_batch_with_mrope_positions
+  embd_batch_with_mrope_positions (27 assertion(s))                             [PASS]
+  embd_batch_init_mrope_pos_in_bounds
+  ASSERT EQUAL FAILED : unset M-RoPE positions are zero
+    expected: 0
+    actual  : 80
+  embd_batch_init_mrope_pos_in_bounds (1 of 13 assertion(s) failed)             [FAIL]
+  token_and_embd_both_set
+  token_and_embd_both_set (9 assertion(s))                                      [PASS]
+  embd_row_width_override
+  embd_row_width_override (6 assertion(s))                                      [PASS]
+compat (1 of 102 assertion(s) failed)                                           [FAIL]
+split
+  split_simple_chunks
+  split_simple_chunks (26 assertion(s))                                         [PASS]
+  split_reset_allows_resplit
+  split_reset_allows_resplit (4 assertion(s))                                   [PASS]
+  split_equal_unequal_lengths
+  split_equal_unequal_lengths (20 assertion(s))                                 [PASS]
+  split_equal_coupled
+  split_equal_coupled (8 assertion(s))                                          [PASS]
+  split_seq_per_sequence
+  split_seq_per_sequence (15 assertion(s))                                      [PASS]
+  ubatch_reserve
+  ubatch_reserve (9 assertion(s))                                               [PASS]
+split (82 assertion(s))                                                         [PASS]
+keep_tail
+  noop_when_seqs_complete
+  noop_when_seqs_complete (5 assertion(s))                                      [PASS]
+  defers_seq_with_short_remainder
+  defers_seq_with_short_remainder (13 assertion(s))                             [PASS]
+  completes_first_seq_when_all_violate
+  completes_first_seq_when_all_violate (12 assertion(s))                        [PASS]
+  truncates_to_preserve_tail
+  truncates_to_preserve_tail (10 assertion(s))                                  [PASS]
+  keeps_full_ubatch_with_sufficient_remainder
+  keeps_full_ubatch_with_sufficient_remainder (6 assertion(s))                  [PASS]
+  multi_seq_prefix_kept
+  multi_seq_prefix_kept (8 assertion(s))                                        [PASS]
+keep_tail (54 assertion(s))                                                     [PASS]
+mrope
+  pos_layout_and_split
+  pos_layout_and_split (12 assertion(s))                                        [PASS]
+  pos_jump_allowed
+  pos_jump_allowed (3 assertion(s))                                             [PASS]
+mrope (15 assertion(s))                                                         [PASS]
+mtp_embd_width
+  mtp_uses_n_embd_out
+  mtp_uses_n_embd_out (2 assertion(s))                                          [PASS]
+  mtp_falls_back_to_n_embd_when_no_override
+  mtp_falls_back_to_n_embd_when_no_override (2 assertion(s))                    [PASS]
+  dflash_uses_n_embd_inp_enc
+  dflash_uses_n_embd_inp_enc (3 assertion(s))                                   [PASS]
+mtp_embd_width (7 assertion(s))                                                 [PASS]
+
+tests      : 51
+assertions : 340
+failures   : 1
+exceptions : 0
+skipped    : 0
+==17996== 
+==17996== HEAP SUMMARY:
+==17996==     in use at exit: 104 bytes in 2 blocks
+==17996==   total heap usage: 14,316 allocs, 14,314 frees, 1,418,493 bytes allocated
+==17996== 
+==17996== LEAK SUMMARY:
+==17996==    definitely lost: 0 bytes in 0 blocks
+==17996==    indirectly lost: 0 bytes in 0 blocks
+==17996==      possibly lost: 0 bytes in 0 blocks
+==17996==    still reachable: 104 bytes in 2 blocks
+==17996==         suppressed: 0 bytes in 0 blocks
+==17996== Rerun with --leak-check=full to see details of leaked memory
+==17996== 
+==17996== For lists of detected and suppressed errors, rerun with: -s
+==17996== ERROR SUMMARY: 9 errors from 1 contexts (suppressed: 0 from 0)

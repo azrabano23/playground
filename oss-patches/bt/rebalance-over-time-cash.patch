@@ -1,0 +1,125 @@
+From 9093a163857f91c9f075b70d65ca3e7f7ddee1c7 Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Mon, 28 Sep 2026 22:46:06 +0000
+Subject: [PATCH] Keep cash reserve across RebalanceOverTime steps
+
+RebalanceOverTime only saw temp['cash'] on the day new weights arrived, so
+every later step rebalanced towards the full-value targets and the strategy
+ended fully invested. Remember the reserve with the weights and apply it to
+the targets before interpolating, since child weights are fractions of total
+value.
+---
+ bt/algos.py         | 19 ++++++++++++++++++-
+ tests/test_algos.py | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/bt/algos.py b/bt/algos.py
+index f97facc..4947348 100644
+--- a/bt/algos.py
++++ b/bt/algos.py
+@@ -1980,6 +1980,9 @@ class RebalanceOverTime(Algo):
+ 
+     Requires:
+         * weights
++        * cash (optional): proportion of value to keep in cash, as in
++          Rebalance. It is read when new weights are set and applies until
++          that rebalance completes.
+ 
+     """
+ 
+@@ -1989,18 +1992,27 @@ class RebalanceOverTime(Algo):
+         self._rb = Rebalance()
+         self._weights = None
+         self._days_left = None
++        self._cash = None
+ 
+     def __call__(self, target):
+         # new weights specified - update rebalance data
+         if "weights" in target.temp:
+             self._weights = target.temp["weights"]
+             self._days_left = self.n
++            # temp is cleared every period, so keep the cash reserve for the whole plan.
++            self._cash = target.temp.get("cash")
+ 
+         # if _weights are not None, we have some work to do
+         if self._weights is not None:
+             tgt = {}
++            # Child weights are fractions of total value, so apply the cash
++            # reserve to the targets before interpolating towards them.
++            target_scale = 1.0
++            if self._cash is not None and not target.fixed_income:
++                target_scale -= self._cash
+             # Read mapping entries by key and preserve their supplied order.
+             for cname, target_weight in self._weights.items():
++                target_weight = target_weight * target_scale
+                 curr = target.children[cname].weight if cname in target.children else 0.0
+                 dlt = (target_weight - curr) / self._days_left
+                 tgt[cname] = curr + dlt
+@@ -2014,9 +2026,13 @@ class RebalanceOverTime(Algo):
+                     dlt = -curr / self._days_left
+                     tgt[cname] = curr + dlt
+ 
+-            # mock weights and call real Rebalance
++            # mock weights and call real Rebalance; the cash reserve is already
++            # reflected in tgt, so Rebalance must not scale it a second time.
+             target.temp["weights"] = tgt
++            cash = target.temp.pop("cash", None)
+             self._rb(target)
++            if cash is not None:
++                target.temp["cash"] = cash
+ 
+             # dec _days_left. If 0, set to None & set _weights to None
+             self._days_left -= 1
+@@ -2024,6 +2040,7 @@ class RebalanceOverTime(Algo):
+             if self._days_left == 0:
+                 self._days_left = None
+                 self._weights = None
++                self._cash = None
+ 
+         return True
+ 
+diff --git a/tests/test_algos.py b/tests/test_algos.py
+index 9dafa13..dcc0140 100644
+--- a/tests/test_algos.py
++++ b/tests/test_algos.py
+@@ -2459,6 +2459,37 @@ def test_rebalance_over_time_supports_sparse_weigh_target():
+     assert backtest.strategy.price == pytest.approx(125.0)
+ 
+ 
++def test_rebalance_over_time_keeps_cash_reserve():
++    dates = pd.date_range("2020-01-01", periods=4)
++    prices = pd.DataFrame({"a": 100.0}, index=dates)
++
++    class SetCash(algos.Algo):
++        def __call__(self, target):
++            target.temp["cash"] = 0.75
++            return True
++
++    strategy = bt.Strategy(
++        "s",
++        [
++            algos.RunOnce(),
++            algos.SelectAll(),
++            algos.WeighSpecified(a=1.0),
++            SetCash(),
++            algos.run_always(algos.RebalanceOverTime(n=2)),
++        ],
++    )
++    backtest = bt.Backtest(strategy, prices, initial_capital=1000.0, integer_positions=False)
++
++    bt.run(backtest)
++
++    # Cash is only in temp on the first day; the second step must still honor it.
++    positions = backtest.strategy.children["a"].positions
++    assert positions.loc[dates[0]] == pytest.approx(1.25)
++    assert positions.loc[dates[1]] == pytest.approx(2.5)
++    assert positions.loc[dates[3]] == pytest.approx(2.5)
++    assert backtest.strategy.cash.loc[dates[3]] == pytest.approx(750.0)
++
++
+ def test_require():
+     target = mock.MagicMock()
+     target.temp = {}
+-- 
+2.43.0
+

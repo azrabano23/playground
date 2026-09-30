@@ -1,0 +1,1698 @@
+From 269b4bf1b2645e01791768872ff191b915d7361b Mon Sep 17 00:00:00 2001
+From: Azra Bano <azrabano.work@gmail.com>
+Date: Tue, 29 Sep 2026 00:26:37 +0000
+Subject: [PATCH] Add sorted array level storage for L2 order books
+
+- Store L2_MBP ladder levels in a contiguous sorted ring buffer
+- Reuse emptied levels from a spare pool so steady-state deltas do not allocate
+- Keep BTreeMap storage for L1_MBP and L3_MBO ladders
+- Accept any best-first level iterator in the book analysis helpers
+- Add a differential property test against the BTreeMap storage
+- Add a zero-allocation test and an L2 delta stream bench
+
+Resolves #4925
+---
+ crates/model/Cargo.toml                   |   5 +
+ crates/model/benches/book_l2_criterion.rs | 349 +++++++++
+ crates/model/src/orderbook/analysis.rs    |  41 +-
+ crates/model/src/orderbook/ladder.rs      |  27 +-
+ crates/model/src/orderbook/levels.rs      | 846 ++++++++++++++++++++++
+ crates/model/src/orderbook/mod.rs         |   1 +
+ crates/model/tests/l2_book_allocations.rs | 204 ++++++
+ 7 files changed, 1442 insertions(+), 31 deletions(-)
+ create mode 100644 crates/model/benches/book_l2_criterion.rs
+ create mode 100644 crates/model/src/orderbook/levels.rs
+ create mode 100644 crates/model/tests/l2_book_allocations.rs
+
+diff --git a/crates/model/Cargo.toml b/crates/model/Cargo.toml
+index f9af204..e8c5cf6 100644
+--- a/crates/model/Cargo.toml
++++ b/crates/model/Cargo.toml
+@@ -100,6 +100,11 @@ name = "book_iai"
+ path = "benches/book_iai.rs"
+ harness = false
+ 
++[[bench]]
++name = "book_l2_criterion"
++path = "benches/book_l2_criterion.rs"
++harness = false
++
+ [[bench]]
+ name = "fixed_precision_criterion"
+ path = "benches/fixed_precision_criterion.rs"
+diff --git a/crates/model/benches/book_l2_criterion.rs b/crates/model/benches/book_l2_criterion.rs
+new file mode 100644
+index 0000000..3de90b3
+--- /dev/null
++++ b/crates/model/benches/book_l2_criterion.rs
+@@ -0,0 +1,349 @@
++// -------------------------------------------------------------------------------------------------
++//  Copyright (C) 2015-2026 Nautech Systems Pty Ltd. All rights reserved.
++//  https://nautechsystems.io
++//
++//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
++//  You may not use this file except in compliance with the License.
++//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
++//
++//  Unless required by applicable law or agreed to in writing, software
++//  distributed under the License is distributed on an "AS IS" BASIS,
++//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++//  See the License for the specific language governing permissions and
++//  limitations under the License.
++// -------------------------------------------------------------------------------------------------
++
++//! Replays a synthetic MBP-style delta stream into an `L2_MBP` order book.
++//!
++//! The stream comes from a seeded model of a deeper book, published as the top `depth` levels
++//! per side: most events change sizes near the top of the book, some add or cancel levels at a
++//! geometric distance from the top, and some move the best price. Each event emits the diff of
++//! the published view, so levels also enter and leave at the depth boundary.
++
++use std::{collections::BTreeMap, hint::black_box};
++
++use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
++use nautilus_model::{
++    data::{BookOrder, OrderBookDelta},
++    enums::{BookAction, BookType, OrderSide, RecordFlag},
++    identifiers::InstrumentId,
++    orderbook::OrderBook,
++    types::{Price, Quantity},
++};
++
++const STREAM_LEN: usize = 100_000;
++const SEED: u64 = 0x5EED_4925;
++
++struct SplitMix64(u64);
++
++impl SplitMix64 {
++    fn next_u64(&mut self) -> u64 {
++        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
++        let mut z = self.0;
++        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++        z ^ (z >> 31)
++    }
++
++    fn below(&mut self, n: u64) -> u64 {
++        self.next_u64() % n
++    }
++
++    // Distance from the top of book, where each deeper level is 45% as likely as the previous
++    fn distance(&mut self, max: usize) -> usize {
++        let mut k = 0;
++        while k + 1 < max && self.below(100) < 45 {
++            k += 1;
++        }
++        k
++    }
++
++    fn size(&mut self) -> u64 {
++        1 + self.below(5_000)
++    }
++}
++
++/// One side of the modeled book, keyed by distance-ordered tick (best first).
++struct ModelSide {
++    side: OrderSide,
++    levels: BTreeMap<i64, u64>,
++}
++
++impl ModelSide {
++    // Keys are stored so that ascending iteration is best first
++    fn key(&self, tick: i64) -> i64 {
++        match self.side {
++            OrderSide::Buy => -tick,
++            OrderSide::Sell => tick,
++        }
++    }
++
++    fn tick(&self, key: i64) -> i64 {
++        self.key(key)
++    }
++
++    fn view(&self, depth: usize) -> Vec<(i64, u64)> {
++        self.levels
++            .iter()
++            .take(depth)
++            .map(|(key, size)| (self.tick(*key), *size))
++            .collect()
++    }
++
++    fn best_tick(&self) -> i64 {
++        self.tick(*self.levels.keys().next().expect("side is never empty"))
++    }
++
++    fn nth_key(&self, n: usize) -> i64 {
++        *self
++            .levels
++            .keys()
++            .nth(n.min(self.levels.len() - 1))
++            .unwrap()
++    }
++
++    fn worst_tick(&self) -> i64 {
++        self.tick(*self.levels.keys().next_back().unwrap())
++    }
++
++    // Moves `steps` ticks away from the top of book
++    fn deeper(&self, tick: i64, steps: i64) -> i64 {
++        match self.side {
++            OrderSide::Buy => tick - steps,
++            OrderSide::Sell => tick + steps,
++        }
++    }
++}
++
++fn price(tick: i64) -> Price {
++    Price::from_mantissa_exponent(tick, -2, 2)
++}
++
++fn delta(
++    instrument_id: InstrumentId,
++    action: BookAction,
++    side: OrderSide,
++    tick: i64,
++    size: u64,
++    flags: u8,
++    sequence: u64,
++) -> OrderBookDelta {
++    let order = BookOrder::new(side, price(tick), Quantity::from(size), 0);
++    OrderBookDelta::new(
++        instrument_id,
++        action,
++        order,
++        flags,
++        sequence,
++        sequence.into(),
++        sequence.into(),
++    )
++}
++
++fn emit_diff(
++    out: &mut Vec<OrderBookDelta>,
++    instrument_id: InstrumentId,
++    side: OrderSide,
++    before: &[(i64, u64)],
++    after: &[(i64, u64)],
++    sequence: u64,
++) {
++    let start = out.len();
++
++    for (tick, size) in before {
++        if !after.iter().any(|(t, _)| t == tick) {
++            out.push(delta(
++                instrument_id,
++                BookAction::Delete,
++                side,
++                *tick,
++                *size,
++                0,
++                sequence,
++            ));
++        }
++    }
++
++    for (tick, size) in after {
++        match before.iter().find(|(t, _)| t == tick) {
++            None => out.push(delta(
++                instrument_id,
++                BookAction::Add,
++                side,
++                *tick,
++                *size,
++                0,
++                sequence,
++            )),
++            Some((_, old)) if old != size => out.push(delta(
++                instrument_id,
++                BookAction::Update,
++                side,
++                *tick,
++                *size,
++                0,
++                sequence,
++            )),
++            Some(_) => {}
++        }
++    }
++
++    if out.len() > start {
++        out.last_mut().unwrap().flags |= RecordFlag::F_LAST as u8;
++    }
++}
++
++/// Generates a snapshot followed by incremental deltas publishing the top `depth` levels.
++fn generate_stream(depth: usize, len: usize, seed: u64) -> Vec<OrderBookDelta> {
++    let instrument_id = InstrumentId::from("AAPL.XNAS");
++    let mut rng = SplitMix64(seed);
++    let model_depth = depth * 2 + 8;
++    let mut sides = [
++        ModelSide {
++            side: OrderSide::Buy,
++            levels: BTreeMap::new(),
++        },
++        ModelSide {
++            side: OrderSide::Sell,
++            levels: BTreeMap::new(),
++        },
++    ];
++
++    for k in 0..model_depth as i64 {
++        let bid_key = sides[0].key(9_999 - k);
++        let ask_key = sides[1].key(10_000 + k);
++        sides[0].levels.insert(bid_key, rng.size());
++        sides[1].levels.insert(ask_key, rng.size());
++    }
++
++    let mut out = Vec::with_capacity(len + 4 * depth);
++    let mut sequence = 1;
++    out.push(OrderBookDelta::clear(
++        instrument_id,
++        sequence,
++        sequence.into(),
++        sequence.into(),
++    ));
++
++    let snapshot: Vec<(OrderSide, i64, u64)> = sides
++        .iter()
++        .flat_map(|s| s.view(depth).into_iter().map(|(t, q)| (s.side, t, q)))
++        .collect();
++    for (idx, (side, tick, size)) in snapshot.iter().enumerate() {
++        let mut flags = RecordFlag::F_SNAPSHOT as u8;
++        if idx + 1 == snapshot.len() {
++            flags |= RecordFlag::F_LAST as u8;
++        }
++        out.push(delta(
++            instrument_id,
++            BookAction::Add,
++            *side,
++            *tick,
++            *size,
++            flags,
++            sequence,
++        ));
++    }
++
++    while out.len() < len {
++        sequence += 1;
++        let s = usize::from(rng.below(2) == 1);
++        let before = sides[s].view(depth);
++        let event = rng.below(1_000);
++
++        if event < 700 {
++            // Size change at an existing level, mostly near the top
++            let key = sides[s].nth_key(rng.distance(model_depth));
++            let size = rng.size();
++            sides[s].levels.insert(key, size);
++        } else if event < 800 {
++            // New level at a gap, mostly near the top
++            let best = sides[s].best_tick();
++            let tick = sides[s].deeper(best, rng.distance(model_depth) as i64);
++            let key = sides[s].key(tick);
++            let size = rng.size();
++            sides[s].levels.entry(key).or_insert(size);
++        } else if event < 900 {
++            // Level cancelled, mostly near the top
++            let key = sides[s].nth_key(rng.distance(model_depth));
++            sides[s].levels.remove(&key);
++        } else {
++            // Top level traded through, the opposite side may step into the gap
++            let key = sides[s].nth_key(0);
++            sides[s].levels.remove(&key);
++
++            if rng.below(2) == 0 {
++                let o = 1 - s;
++                let other_before = sides[o].view(depth);
++                let new_best = sides[s].best_tick();
++                let candidate = sides[o].deeper(sides[o].best_tick(), -1);
++                let crosses = match sides[o].side {
++                    OrderSide::Buy => candidate >= new_best,
++                    OrderSide::Sell => candidate <= new_best,
++                };
++                if !crosses {
++                    let key = sides[o].key(candidate);
++                    let size = rng.size();
++                    sides[o].levels.insert(key, size);
++                }
++                let other_after = sides[o].view(depth);
++                let side = sides[o].side;
++                emit_diff(
++                    &mut out,
++                    instrument_id,
++                    side,
++                    &other_before,
++                    &other_after,
++                    sequence,
++                );
++            }
++        }
++
++        // Keep the modeled book deeper than the published view
++        while sides[s].levels.len() < model_depth {
++            let tick = sides[s].deeper(sides[s].worst_tick(), 1);
++            let key = sides[s].key(tick);
++            let size = rng.size();
++            sides[s].levels.insert(key, size);
++        }
++
++        let after = sides[s].view(depth);
++        let side = sides[s].side;
++        emit_diff(&mut out, instrument_id, side, &before, &after, sequence);
++    }
++
++    out
++}
++
++fn bench_l2_delta_stream(c: &mut Criterion) {
++    let mut group = c.benchmark_group("l2_mbp_delta_stream");
++
++    for depth in [10_usize, 100] {
++        let deltas = generate_stream(depth, STREAM_LEN, SEED);
++        let mut book = OrderBook::new(deltas[0].instrument_id, BookType::L2_MBP);
++
++        // Warm up so level storage has reached the stream's high-water depth
++        for delta in &deltas {
++            book.apply_delta(delta).unwrap();
++        }
++
++        group.throughput(Throughput::Elements(deltas.len() as u64));
++        group.bench_with_input(
++            BenchmarkId::new("apply_delta", depth),
++            &deltas,
++            |b, deltas| {
++                b.iter(|| {
++                    for delta in deltas {
++                        book.apply_delta(black_box(delta)).unwrap();
++                    }
++                    black_box(book.best_bid_price())
++                });
++            },
++        );
++    }
++
++    group.finish();
++}
++
++criterion_group!(benches, bench_l2_delta_stream);
++criterion_main!(benches);
+diff --git a/crates/model/src/orderbook/analysis.rs b/crates/model/src/orderbook/analysis.rs
+index 3aa4d96..0839089 100644
+--- a/crates/model/src/orderbook/analysis.rs
++++ b/crates/model/src/orderbook/analysis.rs
+@@ -15,8 +15,6 @@
+ 
+ //! Functions related to order book analysis.
+ 
+-use std::collections::BTreeMap;
+-
+ use nautilus_core::correctness::{CorrectnessResult, CorrectnessResultExt};
+ use rust_decimal::Decimal;
+ 
+@@ -33,11 +31,14 @@ use crate::{
+ 
+ /// Calculates the estimated fill quantity for a specified price from a set of
+ /// order book levels and order side.
++///
++/// `levels` yields price and level pairs in best-first order, such as a
++/// `&BTreeMap<BookPrice, BookLevel>` or a book ladder's levels.
+ #[must_use]
+-pub fn get_quantity_for_price(
++pub fn get_quantity_for_price<'a>(
+     price: Price,
+     order_side: OrderSide,
+-    levels: &BTreeMap<BookPrice, BookLevel>,
++    levels: impl IntoIterator<Item = (&'a BookPrice, &'a BookLevel)>,
+ ) -> f64 {
+     let mut matched_size: f64 = 0.0;
+ 
+@@ -64,10 +65,10 @@ pub fn get_quantity_for_price(
+ /// - `size_precision` exceeds the supported fixed precision.
+ /// - An aggregated level size cannot be represented as a [`Quantity`].
+ #[must_use]
+-pub fn get_levels_for_price(
++pub fn get_levels_for_price<'a>(
+     price: Price,
+     order_side: OrderSide,
+-    levels: &BTreeMap<BookPrice, BookLevel>,
++    levels: impl IntoIterator<Item = (&'a BookPrice, &'a BookLevel)>,
+     size_precision: u8,
+ ) -> Vec<(Price, Quantity)> {
+     get_levels_for_price_checked(price, order_side, levels, size_precision)
+@@ -81,10 +82,10 @@ pub fn get_levels_for_price(
+ /// Returns an error if:
+ /// - `size_precision` exceeds the supported fixed precision.
+ /// - An aggregated level size cannot be represented as a [`Quantity`].
+-pub(crate) fn get_levels_for_price_checked(
++pub(crate) fn get_levels_for_price_checked<'a>(
+     price: Price,
+     order_side: OrderSide,
+-    levels: &BTreeMap<BookPrice, BookLevel>,
++    levels: impl IntoIterator<Item = (&'a BookPrice, &'a BookLevel)>,
+     size_precision: u8,
+ ) -> CorrectnessResult<Vec<(Price, Quantity)>> {
+     check_fixed_precision(size_precision)?;
+@@ -116,7 +117,10 @@ fn is_level_within_price(order_side: OrderSide, level_price: Price, limit_price:
+ ///
+ /// Panics if the calculated average price cannot be parsed as an `f64`.
+ #[must_use]
+-pub fn get_avg_px_for_quantity(qty: Quantity, levels: &BTreeMap<BookPrice, BookLevel>) -> f64 {
++pub fn get_avg_px_for_quantity<'a>(
++    qty: Quantity,
++    levels: impl IntoIterator<Item = (&'a BookPrice, &'a BookLevel)>,
++) -> f64 {
+     let mut cumulative_size_raw: QuantityRaw = 0;
+     let mut cumulative_size = Decimal::ZERO;
+     let mut cumulative_value = Decimal::ZERO;
+@@ -149,9 +153,9 @@ pub fn get_avg_px_for_quantity(qty: Quantity, levels: &BTreeMap<BookPrice, BookL
+ /// For buy-side traversal this is the highest ask touched; for sell-side traversal
+ /// this is the lowest bid touched. Returns `None` when no quantity can be matched.
+ #[must_use]
+-pub fn get_worst_px_for_quantity(
++pub fn get_worst_px_for_quantity<'a>(
+     qty: Quantity,
+-    levels: &BTreeMap<BookPrice, BookLevel>,
++    levels: impl IntoIterator<Item = (&'a BookPrice, &'a BookLevel)>,
+ ) -> Option<Price> {
+     let mut cumulative_size_raw: QuantityRaw = 0;
+     let mut worst_price: Option<Price> = None;
+@@ -181,14 +185,15 @@ pub fn get_worst_px_for_quantity(
+ /// Calculates the estimated average price for a specified exposure from a set of
+ /// order book levels.
+ #[must_use]
+-pub fn get_avg_px_qty_for_exposure(
+-    target_exposure: Quantity,
+-    levels: &BTreeMap<BookPrice, BookLevel>,
+-) -> (f64, f64, f64) {
++pub fn get_avg_px_qty_for_exposure<'a, L>(target_exposure: Quantity, levels: L) -> (f64, f64, f64)
++where
++    L: IntoIterator<Item = (&'a BookPrice, &'a BookLevel)> + Copy,
++{
+     let mut cumulative_exposure = 0.0;
+     let mut cumulative_size_raw: QuantityRaw = 0;
+     let mut final_price = levels
+-        .first_key_value()
++        .into_iter()
++        .next()
+         .map_or(0.0, |(price, _)| price.value.as_f64());
+ 
+     let target_exposure_raw = target_exposure.raw() as f64;
+@@ -222,8 +227,8 @@ pub fn get_avg_px_qty_for_exposure(
+     } else {
+         // Native DeFi sizes store raw values above the fixed scale
+         let size_precision = levels
+-            .values()
+-            .find_map(BookLevel::first)
++            .into_iter()
++            .find_map(|(_, level)| level.first())
+             .map_or(0, |order| order.size.precision);
+         let avg_price = cumulative_exposure / cumulative_size_raw as f64;
+         (
+diff --git a/crates/model/src/orderbook/ladder.rs b/crates/model/src/orderbook/ladder.rs
+index 3bd13fb..77123c4 100644
+--- a/crates/model/src/orderbook/ladder.rs
++++ b/crates/model/src/orderbook/ladder.rs
+@@ -17,7 +17,7 @@
+ 
+ use std::{
+     cmp::Ordering,
+-    collections::{BTreeMap, HashMap},
++    collections::HashMap,
+     fmt::{Debug, Display},
+ };
+ 
+@@ -28,7 +28,7 @@ use nautilus_core::correctness::{CorrectnessError, CorrectnessResult};
+ use crate::{
+     data::order::{BookOrder, OrderId},
+     enums::{BookType, OrderSide, RecordFlag},
+-    orderbook::BookLevel,
++    orderbook::{BookLevel, levels::LadderLevels},
+     types::{Price, Quantity},
+ };
+ 
+@@ -38,8 +38,7 @@ use crate::{
+ ///
+ /// `BookPrice` instances are only meaningfully compared within the same side
+ /// (i.e., within a single `BookLadder`). Cross-side comparisons are not expected
+-/// in normal use, as bid and ask ladders maintain separate `BTreeMap<BookPrice, BookLevel>`
+-/// collections.
++/// in normal use, as bid and ask ladders maintain separate ordered level collections.
+ ///
+ /// - Equality requires both `value` and `side` to match.
+ /// - Ordering is side-dependent: Buy side sorts descending, Sell side ascending.
+@@ -115,11 +114,14 @@ enum L1BatchState {
+ }
+ 
+ /// Represents a ladder of price levels for one side of an order book.
++///
++/// `L2_MBP` ladders store levels in a contiguous sorted array that reuses level storage, so
++/// steady-state deltas do not allocate. Other book types store levels in a `BTreeMap`.
+ #[derive(Clone, Debug)]
+ pub(crate) struct BookLadder {
+     pub side: OrderSide,
+     pub book_type: BookType,
+-    pub levels: BTreeMap<BookPrice, BookLevel>,
++    pub levels: LadderLevels,
+     pub cache: HashMap<u64, BookPrice>,
+     batch_state: L1BatchState,
+ }
+@@ -131,7 +133,7 @@ impl BookLadder {
+         Self {
+             side,
+             book_type,
+-            levels: BTreeMap::new(),
++            levels: LadderLevels::new(side, book_type),
+             cache: HashMap::new(),
+             batch_state: L1BatchState::None,
+         }
+@@ -259,7 +261,7 @@ impl BookLadder {
+         {
+             existing_level.delete(&order);
+             if existing_level.is_empty() {
+-                self.levels.remove(&existing_price);
++                self.levels.discard(&existing_price);
+             }
+         }
+ 
+@@ -268,8 +270,7 @@ impl BookLadder {
+         if let Some(level) = self.levels.get_mut(&book_price) {
+             level.add(order);
+         } else {
+-            let level = BookLevel::from_order(order);
+-            self.levels.insert(book_price, level);
++            self.levels.insert_new_level(book_price, order);
+         }
+ 
+         // For L1_MBP with F_MBP or F_SNAPSHOT, always retain best to prevent unbounded
+@@ -368,7 +369,7 @@ impl BookLadder {
+                 }
+ 
+                 if level.is_empty() {
+-                    self.levels.remove(&price);
++                    self.levels.discard(&price);
+                     debug_assert!(
+                         !self.cache.values().any(|p| *p == price),
+                         "Cache should not contain removed price level {price:?}"
+@@ -388,7 +389,7 @@ impl BookLadder {
+             level.delete(&order);
+ 
+             if level.is_empty() {
+-                self.levels.remove(&price);
++                self.levels.discard(&price);
+                 debug_assert!(
+                     !self.cache.values().any(|p| *p == price),
+                     "Cache should not contain removed price level {price:?}"
+@@ -434,7 +435,7 @@ impl BookLadder {
+                 );
+ 
+                 if level.is_empty() {
+-                    self.levels.remove(&price);
++                    self.levels.discard(&price);
+                     debug_assert!(
+                         !self.cache.values().any(|p| *p == price),
+                         "Cache should not contain removed price level {price:?}"
+@@ -474,7 +475,7 @@ impl BookLadder {
+     /// Retains only the best price level, removing all others.
+     ///
+     /// For `L1_MBP` books, this ensures only the top-of-book level is kept after
+-    /// processing multi-level data. The `BTreeMap` ordering ensures the first
++    /// processing multi-level data. The level ordering ensures the first
+     /// entry is always the best price (highest for bids, lowest for asks).
+     fn retain_best_only(&mut self) {
+         if self.levels.len() <= 1 {
+diff --git a/crates/model/src/orderbook/levels.rs b/crates/model/src/orderbook/levels.rs
+new file mode 100644
+index 0000000..d6445b0
+--- /dev/null
++++ b/crates/model/src/orderbook/levels.rs
+@@ -0,0 +1,846 @@
++// -------------------------------------------------------------------------------------------------
++//  Copyright (C) 2015-2026 Nautech Systems Pty Ltd. All rights reserved.
++//  https://nautechsystems.io
++//
++//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
++//  You may not use this file except in compliance with the License.
++//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
++//
++//  Unless required by applicable law or agreed to in writing, software
++//  distributed under the License is distributed on an "AS IS" BASIS,
++//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++//  See the License for the specific language governing permissions and
++//  limitations under the License.
++// -------------------------------------------------------------------------------------------------
++
++//! Price level storage for one side of an order book.
++//!
++//! [`LadderLevels`] keeps the price levels of a [`BookLadder`](super::ladder::BookLadder) in
++//! best-first order behind a small ordered-map interface, with two backends:
++//!
++//! - `Tree`: a `BTreeMap<BookPrice, BookLevel>`, used for `L1_MBP` and `L3_MBO` books.
++//! - `Sorted`: a contiguous ring buffer of levels sorted worst-to-best, used for `L2_MBP` books.
++//!
++//! The sorted backend finds a level with a binary search over contiguous memory. Inserting or
++//! removing a level moves only the elements between it and the nearer end of the buffer, so the
++//! common churn at the top of the book and at the published depth boundary moves few elements.
++//! Emptied levels go to a spare pool and are reused for new price levels, so after the ladder
++//! reaches its high-water depth, adding and removing levels does not touch the heap.
++//!
++//! Capacity grows on demand (amortized doubling) and is retained until the book is dropped.
++//! Depth beyond the previous high-water mark allocates once; there is no fixed depth limit and
++//! no fallback path.
++
++use std::{
++    collections::{BTreeMap, VecDeque, btree_map, vec_deque},
++    fmt::Debug,
++    iter::{FusedIterator, Rev},
++    ops::{Bound, RangeBounds},
++};
++
++use crate::{
++    data::order::BookOrder,
++    enums::{BookType, OrderSide},
++    orderbook::{BookLevel, BookPrice},
++};
++
++/// Price level storage for one side of an order book, iterated best price first.
++#[derive(Clone)]
++pub(crate) enum LadderLevels {
++    /// Ordered map storage, used for `L1_MBP` and `L3_MBO` books.
++    Tree(BTreeMap<BookPrice, BookLevel>),
++    /// Sorted array storage, used for `L2_MBP` books.
++    Sorted(SortedLevels),
++}
++
++impl LadderLevels {
++    /// Creates empty level storage suited to the given side and book type.
++    #[must_use]
++    pub(crate) fn new(side: OrderSide, book_type: BookType) -> Self {
++        match book_type {
++            BookType::L2_MBP => Self::Sorted(SortedLevels::new(side)),
++            BookType::L1_MBP | BookType::L3_MBO => Self::Tree(BTreeMap::new()),
++        }
++    }
++
++    /// Returns the number of price levels.
++    #[must_use]
++    pub(crate) fn len(&self) -> usize {
++        match self {
++            Self::Tree(map) => map.len(),
++            Self::Sorted(sorted) => sorted.levels.len(),
++        }
++    }
++
++    /// Returns true if there are no price levels.
++    #[must_use]
++    pub(crate) fn is_empty(&self) -> bool {
++        self.len() == 0
++    }
++
++    /// Removes all price levels.
++    pub(crate) fn clear(&mut self) {
++        match self {
++            Self::Tree(map) => map.clear(),
++            Self::Sorted(sorted) => sorted.clear(),
++        }
++    }
++
++    /// Returns the level at `price`, if any.
++    #[must_use]
++    pub(crate) fn get(&self, price: &BookPrice) -> Option<&BookLevel> {
++        match self {
++            Self::Tree(map) => map.get(price),
++            Self::Sorted(sorted) => sorted.find(price).ok().map(|idx| &sorted.levels[idx]),
++        }
++    }
++
++    /// Returns a mutable reference to the level at `price`, if any.
++    ///
++    /// Callers must not change the level's price through the returned reference.
++    #[must_use]
++    pub(crate) fn get_mut(&mut self, price: &BookPrice) -> Option<&mut BookLevel> {
++        match self {
++            Self::Tree(map) => map.get_mut(price),
++            Self::Sorted(sorted) => match sorted.find(price) {
++                Ok(idx) => Some(&mut sorted.levels[idx]),
++                Err(_) => None,
++            },
++        }
++    }
++
++    /// Inserts `level` at `price`, returning the level it replaced, if any.
++    ///
++    /// `price` must equal `level.price`.
++    pub(crate) fn insert(&mut self, price: BookPrice, level: BookLevel) -> Option<BookLevel> {
++        debug_assert_eq!(price, level.price);
++
++        match self {
++            Self::Tree(map) => map.insert(price, level),
++            Self::Sorted(sorted) => sorted.insert(level),
++        }
++    }
++
++    /// Creates a new price level holding `order`, where no level exists at `price` yet.
++    ///
++    /// The sorted backend reuses a spare level, so this does not allocate once the ladder has
++    /// reached its high-water depth.
++    pub(crate) fn insert_new_level(&mut self, price: BookPrice, order: BookOrder) {
++        match self {
++            Self::Tree(map) => {
++                let replaced = map.insert(price, BookLevel::from_order(order));
++                debug_assert!(replaced.is_none(), "Level already existed at {price:?}");
++            }
++            Self::Sorted(sorted) => sorted.insert_new_level(price, order),
++        }
++    }
++
++    /// Removes and returns the level at `price`, if any.
++    pub(crate) fn remove(&mut self, price: &BookPrice) -> Option<BookLevel> {
++        match self {
++            Self::Tree(map) => map.remove(price),
++            Self::Sorted(sorted) => match sorted.find(price) {
++                Ok(idx) => sorted.levels.remove(idx),
++                Err(_) => None,
++            },
++        }
++    }
++
++    /// Removes the level at `price`, if any, without returning it.
++    ///
++    /// The sorted backend keeps the removed level's storage for reuse.
++    pub(crate) fn discard(&mut self, price: &BookPrice) {
++        match self {
++            Self::Tree(map) => {
++                map.remove(price);
++            }
++            Self::Sorted(sorted) => sorted.discard(price),
++        }
++    }
++
++    /// Removes and returns the best level, if any.
++    pub(crate) fn pop_first(&mut self) -> Option<(BookPrice, BookLevel)> {
++        match self {
++            Self::Tree(map) => map.pop_first(),
++            Self::Sorted(sorted) => sorted.levels.pop_back().map(|level| (level.price, level)),
++        }
++    }
++
++    /// Retains only the levels for which `keep` returns true.
++    pub(crate) fn retain<F>(&mut self, mut keep: F)
++    where
++        F: FnMut(&BookPrice, &mut BookLevel) -> bool,
++    {
++        match self {
++            Self::Tree(map) => map.retain(keep),
++            Self::Sorted(sorted) => {
++                let mut idx = 0;
++                while idx < sorted.levels.len() {
++                    let level = &mut sorted.levels[idx];
++                    let price = level.price;
++                    if keep(&price, level) {
++                        idx += 1;
++                    } else if let Some(level) = sorted.levels.remove(idx) {
++                        sorted.spare.push(level);
++                    }
++                }
++            }
++        }
++    }
++
++    /// Returns an iterator over price and level pairs, best price first.
++    #[must_use]
++    pub(crate) fn iter(&self) -> LevelsIter<'_> {
++        match self {
++            Self::Tree(map) => LevelsIter::Tree(map.iter()),
++            Self::Sorted(sorted) => LevelsIter::Sorted(sorted.levels.iter().rev()),
++        }
++    }
++
++    /// Returns an iterator over price and level pairs within `range`, best price first.
++    ///
++    /// Bounds follow [`BookPrice`] ordering, so `..=bound` yields every level at or better than
++    /// `bound`.
++    #[cfg_attr(not(feature = "ffi"), allow(dead_code))]
++    #[must_use]
++    pub(crate) fn range<R>(&self, range: R) -> LevelsRange<'_>
++    where
++        R: RangeBounds<BookPrice>,
++    {
++        match self {
++            Self::Tree(map) => LevelsRange::Tree(map.range(range)),
++            Self::Sorted(sorted) => LevelsRange::Sorted(sorted.range(&range).rev()),
++        }
++    }
++
++    /// Returns an iterator over prices, best price first.
++    pub(crate) fn keys(
++        &self,
++    ) -> impl DoubleEndedIterator<Item = &BookPrice> + ExactSizeIterator + FusedIterator {
++        self.iter().map(|(price, _)| price)
++    }
++
++    /// Returns an iterator over levels, best price first.
++    pub(crate) fn values(
++        &self,
++    ) -> impl DoubleEndedIterator<Item = &BookLevel> + ExactSizeIterator + FusedIterator {
++        self.iter().map(|(_, level)| level)
++    }
++}
++
++impl Debug for LadderLevels {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_map().entries(self.iter()).finish()
++    }
++}
++
++impl<'a> IntoIterator for &'a LadderLevels {
++    type Item = (&'a BookPrice, &'a BookLevel);
++    type IntoIter = LevelsIter<'a>;
++
++    fn into_iter(self) -> Self::IntoIter {
++        self.iter()
++    }
++}
++
++/// Iterator over the price levels of a [`LadderLevels`], best price first.
++pub(crate) enum LevelsIter<'a> {
++    Tree(btree_map::Iter<'a, BookPrice, BookLevel>),
++    Sorted(Rev<vec_deque::Iter<'a, BookLevel>>),
++}
++
++impl<'a> Iterator for LevelsIter<'a> {
++    type Item = (&'a BookPrice, &'a BookLevel);
++
++    #[inline]
++    fn next(&mut self) -> Option<Self::Item> {
++        match self {
++            Self::Tree(iter) => iter.next(),
++            Self::Sorted(iter) => iter.next().map(|level| (&level.price, level)),
++        }
++    }
++
++    #[inline]
++    fn size_hint(&self) -> (usize, Option<usize>) {
++        match self {
++            Self::Tree(iter) => iter.size_hint(),
++            Self::Sorted(iter) => iter.size_hint(),
++        }
++    }
++}
++
++impl DoubleEndedIterator for LevelsIter<'_> {
++    #[inline]
++    fn next_back(&mut self) -> Option<Self::Item> {
++        match self {
++            Self::Tree(iter) => iter.next_back(),
++            Self::Sorted(iter) => iter.next_back().map(|level| (&level.price, level)),
++        }
++    }
++}
++
++impl ExactSizeIterator for LevelsIter<'_> {}
++
++impl FusedIterator for LevelsIter<'_> {}
++
++/// Iterator over the price levels of a [`LadderLevels`] within a price range, best price first.
++#[cfg_attr(not(feature = "ffi"), allow(dead_code))]
++pub(crate) enum LevelsRange<'a> {
++    Tree(btree_map::Range<'a, BookPrice, BookLevel>),
++    Sorted(Rev<vec_deque::Iter<'a, BookLevel>>),
++}
++
++impl<'a> Iterator for LevelsRange<'a> {
++    type Item = (&'a BookPrice, &'a BookLevel);
++
++    #[inline]
++    fn next(&mut self) -> Option<Self::Item> {
++        match self {
++            Self::Tree(iter) => iter.next(),
++            Self::Sorted(iter) => iter.next().map(|level| (&level.price, level)),
++        }
++    }
++
++    #[inline]
++    fn size_hint(&self) -> (usize, Option<usize>) {
++        match self {
++            Self::Tree(iter) => iter.size_hint(),
++            Self::Sorted(iter) => iter.size_hint(),
++        }
++    }
++}
++
++impl DoubleEndedIterator for LevelsRange<'_> {
++    #[inline]
++    fn next_back(&mut self) -> Option<Self::Item> {
++        match self {
++            Self::Tree(iter) => iter.next_back(),
++            Self::Sorted(iter) => iter.next_back().map(|level| (&level.price, level)),
++        }
++    }
++}
++
++impl FusedIterator for LevelsRange<'_> {}
++
++/// Contiguous price levels sorted worst-to-best, with a pool of spare levels for reuse.
++///
++/// The levels live in a ring buffer, so inserting or removing a level moves only the elements
++/// between it and the nearer end: churn at the top of the book and at the published depth
++/// boundary are both cheap.
++pub(crate) struct SortedLevels {
++    side: OrderSide,
++    /// Active levels, worst price at the front and best price at the back.
++    levels: VecDeque<BookLevel>,
++    /// Emptied levels kept for reuse, so their order storage is not reallocated.
++    spare: Vec<BookLevel>,
++}
++
++impl SortedLevels {
++    fn new(side: OrderSide) -> Self {
++        Self {
++            side,
++            levels: VecDeque::new(),
++            spare: Vec::new(),
++        }
++    }
++
++    /// Finds `price`, returning its index or the index where it would be inserted.
++    #[inline]
++    fn find(&self, price: &BookPrice) -> Result<usize, usize> {
++        debug_assert_eq!(price.side, self.side);
++        let target = &price.value;
++
++        // Bids are stored ascending and asks descending, so the best price is always last
++        match self.side {
++            OrderSide::Buy => self
++                .levels
++                .binary_search_by(|level| level.price.value.cmp(target)),
++            OrderSide::Sell => self
++                .levels
++                .binary_search_by(|level| target.cmp(&level.price.value)),
++        }
++    }
++
++    fn clear(&mut self) {
++        self.spare.extend(self.levels.drain(..));
++    }
++
++    fn insert(&mut self, level: BookLevel) -> Option<BookLevel> {
++        match self.find(&level.price) {
++            Ok(idx) => Some(std::mem::replace(&mut self.levels[idx], level)),
++            Err(idx) => {
++                self.levels.insert(idx, level);
++                None
++            }
++        }
++    }
++
++    fn insert_new_level(&mut self, price: BookPrice, order: BookOrder) {
++        let found = self.find(&price);
++        debug_assert!(found.is_err(), "Level already existed at {price:?}");
++        let Err(idx) = found else {
++            return;
++        };
++
++        let level = if let Some(mut level) = self.spare.pop() {
++            level.price = price;
++            level.orders.clear();
++            level.add(order);
++            level
++        } else {
++            // Size the pool for every level in existence, so returning levels to it later
++            // never reallocates
++            self.spare.reserve(self.levels.len() + 1);
++            BookLevel::from_order(order)
++        };
++        self.levels.insert(idx, level);
++    }
++
++    fn discard(&mut self, price: &BookPrice) {
++        if let Ok(idx) = self.find(price)
++            && let Some(level) = self.levels.remove(idx)
++        {
++            self.spare.push(level);
++        }
++    }
++
++    /// Returns the stored (worst-to-best) levels within `range`.
++    #[cfg_attr(not(feature = "ffi"), allow(dead_code))]
++    fn range<R>(&self, range: &R) -> vec_deque::Iter<'_, BookLevel>
++    where
++        R: RangeBounds<BookPrice>,
++    {
++        // Count levels ordered before `bound` (best-first), optionally including equal ones
++        let count_before = |bound: &BookPrice, inclusive: bool| {
++            let not_before = self.levels.partition_point(|level| {
++                if inclusive {
++                    level.price > *bound
++                } else {
++                    level.price >= *bound
++                }
++            });
++            self.levels.len() - not_before
++        };
++
++        let len = self.levels.len();
++        let start = match range.start_bound() {
++            Bound::Included(bound) => count_before(bound, false),
++            Bound::Excluded(bound) => count_before(bound, true),
++            Bound::Unbounded => 0,
++        };
++        let end = match range.end_bound() {
++            Bound::Included(bound) => count_before(bound, true),
++            Bound::Excluded(bound) => count_before(bound, false),
++            Bound::Unbounded => len,
++        };
++        let end = end.max(start);
++
++        self.levels.range(len - end..len - start)
++    }
++}
++
++impl Clone for SortedLevels {
++    // Spare levels are only a cache of storage, so a clone starts without them
++    fn clone(&self) -> Self {
++        Self {
++            side: self.side,
++            levels: self.levels.clone(),
++            spare: Vec::new(),
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use std::collections::BTreeMap;
++
++    use proptest::prelude::*;
++    use rstest::rstest;
++
++    use super::*;
++    use crate::{
++        data::{OrderBookDelta, order::BookOrder},
++        enums::{BookAction, RecordFlag},
++        identifiers::InstrumentId,
++        orderbook::{OrderBook, aggregation::pre_process_order, analysis::book_check_integrity},
++        types::{Price, Quantity, price::PriceRaw},
++    };
++
++    fn level(side: OrderSide, price: &str, size: u64) -> BookLevel {
++        BookLevel::from_order(BookOrder::new(
++            side,
++            Price::from(price),
++            Quantity::from(size),
++            0,
++        ))
++    }
++
++    fn prices(levels: &LadderLevels) -> Vec<Price> {
++        levels.keys().map(|price| price.value).collect()
++    }
++
++    #[rstest]
++    #[case::bids(OrderSide::Buy, ["100.02", "100.01", "100.00"])]
++    #[case::asks(OrderSide::Sell, ["100.00", "100.01", "100.02"])]
++    fn test_sorted_levels_iterate_best_first(#[case] side: OrderSide, #[case] expected: [&str; 3]) {
++        let mut levels = LadderLevels::new(side, BookType::L2_MBP);
++
++        for price in ["100.01", "100.00", "100.02"] {
++            let level = level(side, price, 1);
++            levels.insert(level.price, level);
++        }
++
++        let expected: Vec<Price> = expected.iter().map(|price| Price::from(*price)).collect();
++        assert!(matches!(levels, LadderLevels::Sorted(_)));
++        assert_eq!(prices(&levels), expected);
++        assert_eq!(
++            levels.values().next().map(|level| level.price.value),
++            Some(expected[0])
++        );
++        assert_eq!(
++            levels
++                .iter()
++                .rev()
++                .next_back()
++                .map(|(price, _)| price.value),
++            Some(expected[0])
++        );
++    }
++
++    #[rstest]
++    #[case::bid_at_top(OrderSide::Buy, "100.02")]
++    #[case::bid_inside(OrderSide::Buy, "100.01")]
++    #[case::bid_between(OrderSide::Buy, "100.015")]
++    #[case::bid_below_all(OrderSide::Buy, "99.99")]
++    #[case::bid_above_all(OrderSide::Buy, "100.03")]
++    #[case::ask_at_top(OrderSide::Sell, "100.00")]
++    #[case::ask_inside(OrderSide::Sell, "100.01")]
++    #[case::ask_between(OrderSide::Sell, "100.005")]
++    #[case::ask_below_all(OrderSide::Sell, "99.99")]
++    #[case::ask_above_all(OrderSide::Sell, "100.03")]
++    fn test_sorted_range_matches_tree_range(#[case] side: OrderSide, #[case] bound: &str) {
++        let mut tree = LadderLevels::new(side, BookType::L3_MBO);
++        let mut sorted = LadderLevels::new(side, BookType::L2_MBP);
++
++        for price in ["100.000", "100.010", "100.020"] {
++            let level = level(side, price, 1);
++            tree.insert(level.price, level.clone());
++            sorted.insert(level.price, level);
++        }
++
++        let bound = BookPrice::new(Price::from(bound), side);
++        let collect = |iter: LevelsRange<'_>| iter.map(|(p, _)| p.value).collect::<Vec<_>>();
++
++        assert_eq!(
++            collect(sorted.range(..=bound)),
++            collect(tree.range(..=bound))
++        );
++        assert_eq!(collect(sorted.range(..bound)), collect(tree.range(..bound)));
++        assert_eq!(collect(sorted.range(bound..)), collect(tree.range(bound..)));
++        assert_eq!(collect(sorted.range(..)), collect(tree.range(..)));
++    }
++
++    #[rstest]
++    fn test_sorted_levels_reuse_discarded_storage() {
++        let side = OrderSide::Buy;
++        let mut levels = LadderLevels::new(side, BookType::L2_MBP);
++
++        for price in ["100.00", "100.01", "100.02"] {
++            let order = BookOrder::new(side, Price::from(price), Quantity::from(1), 0);
++            levels.insert_new_level(order.to_book_price(), order);
++        }
++
++        for _ in 0..100 {
++            let order = BookOrder::new(side, Price::from("100.03"), Quantity::from(2), 0);
++            levels.insert_new_level(order.to_book_price(), order);
++            levels.discard(&order.to_book_price());
++        }
++
++        let LadderLevels::Sorted(sorted) = &levels else {
++            panic!("L2 levels should use sorted storage");
++        };
++        assert_eq!(sorted.levels.len(), 3);
++        assert_eq!(sorted.spare.len(), 1);
++
++        levels.clear();
++
++        let LadderLevels::Sorted(sorted) = &levels else {
++            panic!("L2 levels should use sorted storage");
++        };
++        assert!(sorted.levels.is_empty());
++        assert_eq!(sorted.spare.len(), 4);
++    }
++
++    #[rstest]
++    fn test_sorted_levels_debug_matches_tree() {
++        let side = OrderSide::Sell;
++        let mut tree = LadderLevels::new(side, BookType::L3_MBO);
++        let mut sorted = LadderLevels::new(side, BookType::L2_MBP);
++
++        for price in ["100.01", "100.00"] {
++            let level = level(side, price, 3);
++            tree.insert(level.price, level.clone());
++            sorted.insert(level.price, level);
++        }
++
++        assert_eq!(format!("{sorted:?}"), format!("{tree:?}"));
++    }
++
++    // Differential testing: every L2 delta stream must leave the sorted-array book and a book
++    // forced onto the previous `BTreeMap` storage in the same observable state.
++
++    #[derive(Clone, Debug)]
++    enum L2Operation {
++        Delta {
++            action: BookAction,
++            side: Option<OrderSide>,
++            tick: u8,
++            size: u8,
++            id_from_price: bool,
++            flags: u8,
++        },
++        ClearStaleLevels(Option<OrderSide>),
++        ClearBids,
++        ClearAsks,
++        Reset,
++    }
++
++    fn l2_operation_strategy() -> impl Strategy<Value = L2Operation> {
++        let action = prop_oneof![
++            3 => Just(BookAction::Add),
++            6 => Just(BookAction::Update),
++            3 => Just(BookAction::Delete),
++            1 => Just(BookAction::Clear),
++        ];
++        let side = prop_oneof![
++            8 => Just(Some(OrderSide::Buy)),
++            8 => Just(Some(OrderSide::Sell)),
++            1 => Just(None),
++        ];
++        let flags = prop_oneof![
++            Just(0u8),
++            Just(RecordFlag::F_LAST as u8),
++            Just(RecordFlag::F_SNAPSHOT as u8),
++            Just(RecordFlag::F_SNAPSHOT as u8 | RecordFlag::F_LAST as u8),
++            Just(RecordFlag::F_MBP as u8),
++            Just(RecordFlag::F_MBP as u8 | RecordFlag::F_LAST as u8),
++        ];
++        let delta = (action, side, 0u8..48, 0u8..6, any::<bool>(), flags).prop_map(
++            |(action, side, tick, size, id_from_price, flags)| L2Operation::Delta {
++                action,
++                side,
++                tick,
++                size,
++                id_from_price,
++                flags,
++            },
++        );
++
++        prop_oneof![
++            60 => delta,
++            1 => prop_oneof![
++                Just(None),
++                Just(Some(OrderSide::Buy)),
++                Just(Some(OrderSide::Sell)),
++            ]
++            .prop_map(L2Operation::ClearStaleLevels),
++            1 => Just(L2Operation::ClearBids),
++            1 => Just(L2Operation::ClearAsks),
++            1 => Just(L2Operation::Reset),
++        ]
++    }
++
++    fn tick_price(tick: u8) -> Price {
++        let tick_raw = Price::from("0.01").raw * PriceRaw::from(tick);
++        Price::from_raw(Price::from("100.00").raw + tick_raw, 2)
++    }
++
++    fn tree_backed_l2_book(instrument_id: InstrumentId) -> OrderBook {
++        let mut book = OrderBook::new(instrument_id, BookType::L2_MBP);
++        book.bids.levels = LadderLevels::Tree(BTreeMap::new());
++        book.asks.levels = LadderLevels::Tree(BTreeMap::new());
++        book
++    }
++
++    fn apply_operation(
++        book: &mut OrderBook,
++        operation: &L2Operation,
++        sequence: u64,
++    ) -> Option<String> {
++        match *operation {
++            L2Operation::Delta {
++                action,
++                side,
++                tick,
++                size,
++                id_from_price,
++                flags,
++            } => {
++                let price = tick_price(tick);
++                let mut order = BookOrder {
++                    side,
++                    price,
++                    size: Quantity::from(u64::from(size)),
++                    order_id: u64::from(tick) + 1,
++                };
++
++                // Use the book's own price-based ID so no-side deltas can resolve their side
++                if id_from_price {
++                    order.order_id = pre_process_order(BookType::L2_MBP, order, flags).order_id;
++                }
++
++                if action == BookAction::Clear {
++                    order = BookOrder::default();
++                }
++
++                let delta = OrderBookDelta {
++                    instrument_id: book.instrument_id,
++                    action,
++                    order,
++                    flags,
++                    sequence,
++                    ts_event: sequence.into(),
++                    ts_init: sequence.into(),
++                };
++                Some(format!("{:?}", book.apply_delta(&delta)))
++            }
++            L2Operation::ClearStaleLevels(side) => {
++                Some(format!("{:?}", book.clear_stale_levels(side)))
++            }
++            L2Operation::ClearBids => {
++                book.clear_bids(sequence, sequence.into());
++                None
++            }
++            L2Operation::ClearAsks => {
++                book.clear_asks(sequence, sequence.into());
++                None
++            }
++            L2Operation::Reset => {
++                book.reset();
++                None
++            }
++        }
++    }
++
++    fn assert_books_match(book: &OrderBook, reference: &OrderBook) {
++        let snapshot = |levels: &mut dyn Iterator<Item = &BookLevel>| {
++            levels
++                .map(|level| (level.price, level.get_orders()))
++                .collect::<Vec<_>>()
++        };
++
++        for depth in [None, Some(1), Some(3)] {
++            assert_eq!(
++                snapshot(&mut book.bids(depth)),
++                snapshot(&mut reference.bids(depth))
++            );
++            assert_eq!(
++                snapshot(&mut book.asks(depth)),
++                snapshot(&mut reference.asks(depth))
++            );
++        }
++
++        assert_eq!(book.bids.len(), reference.bids.len());
++        assert_eq!(book.asks.len(), reference.asks.len());
++        assert_eq!(book.bids.cache, reference.bids.cache);
++        assert_eq!(book.asks.cache, reference.asks.cache);
++        assert_eq!(book.sequence, reference.sequence);
++        assert_eq!(book.ts_last, reference.ts_last);
++        assert_eq!(book.update_count, reference.update_count);
++        assert_eq!(book.best_bid_price(), reference.best_bid_price());
++        assert_eq!(book.best_ask_price(), reference.best_ask_price());
++        assert_eq!(book.best_bid_size(), reference.best_bid_size());
++        assert_eq!(book.best_ask_size(), reference.best_ask_size());
++        assert_eq!(book_check_integrity(book), book_check_integrity(reference));
++        assert_eq!(
++            format!("{:?}", book.bids.levels),
++            format!("{:?}", reference.bids.levels)
++        );
++        assert_eq!(
++            format!("{:?}", book.asks.levels),
++            format!("{:?}", reference.asks.levels)
++        );
++        assert_eq!(book.pprint(3, None), reference.pprint(3, None));
++        assert_eq!(
++            book.to_deltas(1.into(), 1.into()),
++            reference.to_deltas(1.into(), 1.into())
++        );
++
++        for tick in [0, 11, 23, 47] {
++            let price = tick_price(tick);
++            for side in [OrderSide::Buy, OrderSide::Sell] {
++                assert_eq!(
++                    book.get_quantity_for_price(price, side),
++                    reference.get_quantity_for_price(price, side)
++                );
++                assert_eq!(
++                    book.get_quantity_at_level(price, side, 0),
++                    reference.get_quantity_at_level(price, side, 0)
++                );
++                assert_eq!(
++                    book.get_all_crossed_levels(side, price, 0),
++                    reference.get_all_crossed_levels(side, price, 0)
++                );
++            }
++
++            let bid_bound = BookPrice::new(price, OrderSide::Buy);
++            let ask_bound = BookPrice::new(price, OrderSide::Sell);
++            assert!(
++                book.bids
++                    .levels
++                    .range(..=bid_bound)
++                    .eq(reference.bids.levels.range(..=bid_bound))
++            );
++            assert!(
++                book.asks
++                    .levels
++                    .range(..=ask_bound)
++                    .eq(reference.asks.levels.range(..=ask_bound))
++            );
++        }
++
++        let qty = Quantity::from(7);
++        for side in [OrderSide::Buy, OrderSide::Sell] {
++            assert_eq!(
++                book.get_avg_px_for_quantity(qty, side).to_bits(),
++                reference.get_avg_px_for_quantity(qty, side).to_bits()
++            );
++            assert_eq!(
++                book.get_worst_px_for_quantity(qty, side),
++                reference.get_worst_px_for_quantity(qty, side)
++            );
++            let (avg, size, last) = book.get_avg_px_qty_for_exposure(qty, side);
++            let (ref_avg, ref_size, ref_last) = reference.get_avg_px_qty_for_exposure(qty, side);
++            assert_eq!(
++                (avg.to_bits(), size.to_bits(), last.to_bits()),
++                (ref_avg.to_bits(), ref_size.to_bits(), ref_last.to_bits())
++            );
++        }
++    }
++
++    fn check_l2_equivalence(operations: &[L2Operation]) {
++        let instrument_id = InstrumentId::from("AAPL.XNAS");
++        let mut book = OrderBook::new(instrument_id, BookType::L2_MBP);
++        let mut reference = tree_backed_l2_book(instrument_id);
++        assert!(matches!(book.bids.levels, LadderLevels::Sorted(_)));
++        assert!(matches!(reference.bids.levels, LadderLevels::Tree(_)));
++
++        for (idx, operation) in operations.iter().enumerate() {
++            let sequence = idx as u64 + 1;
++            let result = apply_operation(&mut book, operation, sequence);
++            let reference_result = apply_operation(&mut reference, operation, sequence);
++
++            assert_eq!(result, reference_result, "operation {idx}: {operation:?}");
++            assert_books_match(&book, &reference);
++        }
++    }
++
++    #[rstest]
++    fn prop_test_l2_sorted_levels_match_tree_levels() {
++        proptest!(ProptestConfig::with_cases(512), |(
++            operations in prop::collection::vec(l2_operation_strategy(), 1..=200),
++        )| {
++            check_l2_equivalence(&operations);
++        });
++    }
++}
+diff --git a/crates/model/src/orderbook/mod.rs b/crates/model/src/orderbook/mod.rs
+index e977607..3880a5b 100644
+--- a/crates/model/src/orderbook/mod.rs
++++ b/crates/model/src/orderbook/mod.rs
+@@ -22,6 +22,7 @@ pub mod display;
+ pub mod error;
+ pub mod ladder;
+ pub mod level;
++pub(crate) mod levels;
+ pub mod own;
+ 
+ #[cfg(test)]
+diff --git a/crates/model/tests/l2_book_allocations.rs b/crates/model/tests/l2_book_allocations.rs
+new file mode 100644
+index 0000000..9760ff2
+--- /dev/null
++++ b/crates/model/tests/l2_book_allocations.rs
+@@ -0,0 +1,204 @@
++// -------------------------------------------------------------------------------------------------
++//  Copyright (C) 2015-2026 Nautech Systems Pty Ltd. All rights reserved.
++//  https://nautechsystems.io
++//
++//  Licensed under the GNU Lesser General Public License Version 3.0 (the "License");
++//  You may not use this file except in compliance with the License.
++//  You may obtain a copy of the License at https://www.gnu.org/licenses/lgpl-3.0.en.html
++//
++//  Unless required by applicable law or agreed to in writing, software
++//  distributed under the License is distributed on an "AS IS" BASIS,
++//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++//  See the License for the specific language governing permissions and
++//  limitations under the License.
++// -------------------------------------------------------------------------------------------------
++
++//! Checks that steady-state `L2_MBP` delta processing does not touch the heap.
++
++use std::{
++    alloc::{GlobalAlloc, Layout, System},
++    cell::Cell,
++};
++
++use nautilus_model::{
++    data::{BookOrder, OrderBookDelta},
++    enums::{BookAction, BookType, OrderSide, RecordFlag},
++    identifiers::InstrumentId,
++    orderbook::OrderBook,
++    types::{Price, Quantity},
++};
++use rstest::rstest;
++
++// Counts heap calls made by the current thread while counting is enabled, so allocations from
++// other test harness threads are not attributed to the code under test
++struct ThreadCountingAlloc;
++
++thread_local! {
++    static COUNTING: Cell<bool> = const { Cell::new(false) };
++    static HEAP_CALLS: Cell<u64> = const { Cell::new(0) };
++}
++
++fn record_heap_call() {
++    let _ = COUNTING.try_with(|counting| {
++        if counting.get() {
++            let _ = HEAP_CALLS.try_with(|calls| calls.set(calls.get() + 1));
++        }
++    });
++}
++
++// SAFETY: Delegates every call to the system allocator unchanged
++unsafe impl GlobalAlloc for ThreadCountingAlloc {
++    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
++        record_heap_call();
++        unsafe { System.alloc(layout) }
++    }
++
++    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
++        record_heap_call();
++        unsafe { System.dealloc(ptr, layout) }
++    }
++
++    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
++        record_heap_call();
++        unsafe { System.alloc_zeroed(layout) }
++    }
++
++    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
++        record_heap_call();
++        unsafe { System.realloc(ptr, layout, new_size) }
++    }
++}
++
++#[global_allocator]
++static ALLOCATOR: ThreadCountingAlloc = ThreadCountingAlloc;
++
++fn count_heap_calls(f: impl FnOnce()) -> u64 {
++    HEAP_CALLS.with(|calls| calls.set(0));
++    COUNTING.with(|counting| counting.set(true));
++    f();
++    COUNTING.with(|counting| counting.set(false));
++    HEAP_CALLS.with(Cell::get)
++}
++
++fn delta(action: BookAction, side: OrderSide, tick: i64, size: u64, flags: u8) -> OrderBookDelta {
++    let order = BookOrder::new(
++        side,
++        Price::from_mantissa_exponent(tick, -2, 2),
++        Quantity::from(size),
++        0,
++    );
++    OrderBookDelta::new(
++        InstrumentId::from("AAPL.XNAS"),
++        action,
++        order,
++        flags,
++        0,
++        0.into(),
++        0.into(),
++    )
++}
++
++/// A snapshot of `depth` levels per side, then a drifting market that adds, updates, and
++/// deletes levels at the top and at the depth boundary.
++fn delta_stream(depth: i64, steps: i64) -> Vec<OrderBookDelta> {
++    let mut deltas = vec![OrderBookDelta::clear(
++        InstrumentId::from("AAPL.XNAS"),
++        0,
++        0.into(),
++        0.into(),
++    )];
++
++    for k in 0..depth {
++        let flags = RecordFlag::F_SNAPSHOT as u8;
++        deltas.push(delta(BookAction::Add, OrderSide::Buy, 9_999 - k, 10, flags));
++        deltas.push(delta(
++            BookAction::Add,
++            OrderSide::Sell,
++            10_000 + k,
++            10,
++            flags,
++        ));
++    }
++    deltas.last_mut().unwrap().flags |= RecordFlag::F_LAST as u8;
++
++    let (mut best_bid, mut best_ask) = (9_999, 10_000);
++
++    for step in 0..steps {
++        let size = 1 + (step as u64 % 7);
++        deltas.push(delta(BookAction::Update, OrderSide::Buy, best_bid, size, 0));
++        deltas.push(delta(
++            BookAction::Update,
++            OrderSide::Sell,
++            best_ask - 1 + depth,
++            size,
++            0,
++        ));
++
++        // Drift up for half the cycle and down for the other half
++        if (step / 16) % 2 == 0 {
++            deltas.push(delta(BookAction::Delete, OrderSide::Sell, best_ask, 0, 0));
++            deltas.push(delta(
++                BookAction::Add,
++                OrderSide::Sell,
++                best_ask + depth,
++                10,
++                0,
++            ));
++            best_ask += 1;
++            deltas.push(delta(
++                BookAction::Delete,
++                OrderSide::Buy,
++                best_bid - depth + 1,
++                0,
++                0,
++            ));
++            best_bid += 1;
++            deltas.push(delta(BookAction::Add, OrderSide::Buy, best_bid, 10, 0));
++        } else {
++            deltas.push(delta(BookAction::Delete, OrderSide::Buy, best_bid, 0, 0));
++            deltas.push(delta(
++                BookAction::Add,
++                OrderSide::Buy,
++                best_bid - depth,
++                10,
++                0,
++            ));
++            best_bid -= 1;
++            deltas.push(delta(
++                BookAction::Delete,
++                OrderSide::Sell,
++                best_ask + depth - 1,
++                0,
++                0,
++            ));
++            best_ask -= 1;
++            deltas.push(delta(BookAction::Add, OrderSide::Sell, best_ask, 10, 0));
++        }
++    }
++
++    deltas
++}
++
++#[rstest]
++#[case::depth_10(10)]
++#[case::depth_100(100)]
++fn test_l2_steady_state_deltas_do_not_allocate(#[case] depth: i64) {
++    let deltas = delta_stream(depth, 256);
++    let mut book = OrderBook::new(InstrumentId::from("AAPL.XNAS"), BookType::L2_MBP);
++
++    // The first pass sizes level storage to the stream's high-water depth
++    for delta in &deltas {
++        book.apply_delta(delta).unwrap();
++    }
++
++    // The second pass starts with a clear and snapshot, so it also covers rebuilding the book
++    let heap_calls = count_heap_calls(|| {
++        for delta in &deltas {
++            book.apply_delta(delta).unwrap();
++        }
++    });
++
++    assert_eq!(heap_calls, 0);
++    assert_eq!(book.bids(None).count(), depth as usize);
++    assert_eq!(book.asks(None).count(), depth as usize);
++}
+-- 
+2.43.0
+

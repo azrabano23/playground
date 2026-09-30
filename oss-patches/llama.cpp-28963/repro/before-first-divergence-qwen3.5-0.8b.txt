@@ -1,0 +1,17 @@
+run 0 inp_pos (20 = 4 sections x 5 tokens): | 0 1 2 3 4 | 16448 353 0 1638094235 5 | 687119876 613155707 184 180 224 | 184 310 224 184 311
+run 1 inp_pos (20 = 4 sections x 5 tokens): | 0 1 2 3 4 | 16705 353 0 1638094235 5 | 687119876 613155707 184 180 224 | 184 310 224 184 311
+(ignored: #0 node_0 = GET_ROWS(token_embd.weight, inp_tokens) differs, unselected token branch)
+first differing tensor: #204 'Qcur-3'
+previous tensor (identical): 'Qcur_normed-3'
+evaluation order up to the first difference:
+  #201 Qcur_reshaped-3 = VIEW(Qcur_full-3)
+  #202 norm-3 = RMS_NORM(Qcur_reshaped-3)
+  #203 Qcur_normed-3 = MUL(norm-3, blk.3.attn_q_norm.weight)
+  #204 Qcur-3 = ROPE(Qcur_normed-3, inp_pos)
+first differing tensors with a layer-tagged name:
+  #204 Qcur-3 = ROPE(Qcur_normed-3, inp_pos)
+  #212 Kcur-3 = ROPE(Kcur_normed-3, inp_pos)
+  #214 Kcur-3 (view) = VIEW(Kcur-3)
+  #218 Qcur-3 (view) = VIEW(Qcur-3)
+  #219 Qcur-3 (view) (permuted) = PERMUTE(Qcur-3 (view))
+  #225 attn_pregate-3 = RESHAPE(node_222)

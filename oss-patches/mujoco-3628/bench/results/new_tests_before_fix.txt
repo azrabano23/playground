@@ -1,0 +1,130 @@
+######## BEFORE (base engine sources, new tests), build
+Note: Google Test filter = *CrossesCone*:*RoundingNoise*:*ExhaustedWarning*
+[==========] Running 3 tests from 1 test suite.
+[ RUN      ] SolverTest.EllipticLineSearchCrossesConeBoundary
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:825: Failure
+Expected: (data->solver[i].neval) < (20), actual: 20 vs 20
+iteration 1
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately 146.3525982819061 (absolute error <= 9.9999999999999995e-07)
+  Actual: 155.38862466207922 (of type double), which is 9.03603 from 146.353
+dof 0
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately 149.41789161119502 (absolute error <= 9.9999999999999995e-07)
+  Actual: 148.73950701424292 (of type double), which is -0.678385 from 149.418
+dof 1
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately 369.13543335510474 (absolute error <= 9.9999999999999995e-07)
+  Actual: 358.07949280857923 (of type double), which is -11.0559 from 369.135
+dof 2
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately -2078.5459169338706 (absolute error <= 9.9999999999999995e-07)
+  Actual: -2027.6396043727609 (of type double), which is 50.9063 from -2078.55
+dof 3
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately 1477.16298453643 (absolute error <= 9.9999999999999995e-07)
+  Actual: 1536.3218340437554 (of type double), which is 59.1588 from 1477.16
+dof 4
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:830: Failure
+Value of: qacc[i]
+Expected: is approximately -606.98346282668012 (absolute error <= 9.9999999999999995e-07)
+  Actual: -557.73836935016243 (of type double), which is 49.2451 from -606.983
+dof 5
+[  FAILED  ] SolverTest.EllipticLineSearchCrossesConeBoundary (9 ms)
+[ RUN      ] SolverTest.LineSearchExhaustedWarning
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:850: Failure
+Expected equality of these values:
+  data->solver[niter - 1].improvement
+    Which is: 185.53555450427424
+  0
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:851: Failure
+Expected equality of these values:
+  data->warning[mjWARN_LINESEARCH].number
+    Which is: 0
+  1
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:852: Failure
+Expected equality of these values:
+  data->warning[mjWARN_LINESEARCH].lastinfo
+    Which is: 0
+  5
+/home/user/oss3/mujoco/test/fixture.cc:92: Failure
+Actual function call count doesn't match EXPECT_CALL(*this, Warn(::testing::HasSubstr(std::string(substring))))...
+         Expected: to be called at least once
+           Actual: never called - unsatisfied and active
+[  FAILED  ] SolverTest.LineSearchExhaustedWarning (0 ms)
+[ RUN      ] SolverTest.LineSearchStopsAtRoundingNoise
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:890: Failure
+Expected equality of these values:
+  nexhausted
+    Which is: 3979
+  0
+cone: pyramidal
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:890: Failure
+Expected equality of these values:
+  nexhausted
+    Which is: 3247
+  0
+cone: elliptic
+[  FAILED  ] SolverTest.LineSearchStopsAtRoundingNoise (87 ms)
+[==========] 3 tests from 1 test suite ran. (97 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 3 tests, listed below:
+[  FAILED  ] SolverTest.EllipticLineSearchCrossesConeBoundary
+[  FAILED  ] SolverTest.LineSearchExhaustedWarning
+[  FAILED  ] SolverTest.LineSearchStopsAtRoundingNoise
+ 3 FAILED TESTS
+######## BEFORE (base engine sources, new tests), build-single
+Note: Google Test filter = *CrossesCone*:*RoundingNoise*:*ExhaustedWarning*
+[==========] Running 3 tests from 1 test suite.
+[ RUN      ] SolverTest.EllipticLineSearchCrossesConeBoundary
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:825: Failure
+Expected: (data->solver[i].neval) < (20), actual: 22 vs 20
+iteration 1
+[  FAILED  ] SolverTest.EllipticLineSearchCrossesConeBoundary (1 ms)
+[ RUN      ] SolverTest.LineSearchExhaustedWarning
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:850: Failure
+Expected equality of these values:
+  data->solver[niter - 1].improvement
+    Which is: 185.529572
+  0
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:851: Failure
+Expected equality of these values:
+  data->warning[mjWARN_LINESEARCH].number
+    Which is: 0
+  1
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:852: Failure
+Expected equality of these values:
+  data->warning[mjWARN_LINESEARCH].lastinfo
+    Which is: 0
+  5
+/home/user/oss3/mujoco/test/fixture.cc:92: Failure
+Actual function call count doesn't match EXPECT_CALL(*this, Warn(::testing::HasSubstr(std::string(substring))))...
+         Expected: to be called at least once
+           Actual: never called - unsatisfied and active
+[  FAILED  ] SolverTest.LineSearchExhaustedWarning (0 ms)
+[ RUN      ] SolverTest.LineSearchStopsAtRoundingNoise
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:890: Failure
+Expected equality of these values:
+  nexhausted
+    Which is: 4153
+  0
+cone: pyramidal
+/home/user/oss3/mujoco/test/engine/engine_solver_test.cc:890: Failure
+Expected equality of these values:
+  nexhausted
+    Which is: 3354
+  0
+cone: elliptic
+[  FAILED  ] SolverTest.LineSearchStopsAtRoundingNoise (48 ms)
+[==========] 3 tests from 1 test suite ran. (50 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 3 tests, listed below:
+[  FAILED  ] SolverTest.EllipticLineSearchCrossesConeBoundary
+[  FAILED  ] SolverTest.LineSearchExhaustedWarning
+[  FAILED  ] SolverTest.LineSearchStopsAtRoundingNoise
+ 3 FAILED TESTS
