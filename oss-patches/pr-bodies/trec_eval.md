@@ -1,7 +1,3 @@
-**Repo status (checked 2026-09-28):** active. PRs from outside contributors are merged (#45 diazf, #48 arjenpdevries, #50 ishnid, merged 2026-07-20); #51 is open. No existing issue covers this. #46 ("Segfault from no topic overlap") is a different code path.
-
----
-
 ## Summary
 
 `te_form_res_rels` computes `max_rel` like this:

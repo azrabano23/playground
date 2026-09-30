@@ -1,5 +1,3 @@
----
-
 ## Background
 
 0.5.8 (2d4d506) fixed cvangysel/pytrec_eval#57 by dropping queries with an empty qrels dict in the Python wrapper. That fixes the symptom for `pytrec_eval.RelevanceEvaluator`. The underlying memory bug is still in the extension, though: it can still be reached through `pytrec_eval_ext.RelevanceEvaluator`, and `evaluate()` still hides trec_eval errors. This PR fixes the cause.

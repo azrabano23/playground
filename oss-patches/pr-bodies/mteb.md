@@ -1,5 +1,3 @@
----
-
 ## What
 
 Raise the minimum `pytrec-eval-terrier` version from 0.5.6 to 0.5.8. The change is in `pyproject.toml` and in the matching `requires-dist` entry in `uv.lock`. The locked version is already 0.5.10, so no resolved package changes.
