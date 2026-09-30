@@ -16,3 +16,4 @@ myoedge/data/
 # career: private files and build outputs stay local
 career/private/
 career/**/*.png
+career/applications/
