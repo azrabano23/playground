@@ -18,6 +18,7 @@ because the default branch is a synced mirror and the work sits on a branch besi
 | `CONTRIBUTIONS.md` | Generated: every pull request grouped by project, plus the patches not yet submitted |
 | `README-profile.md` | Generated: drop-in replacement for the README of the `azrabano23/azrabano23` profile repo |
 | `submit-unsent.sh` | Generated: a reviewable `gh pr create` per unsubmitted patch |
+| `patch-readiness.md` | Hand-written from real test runs: which unsubmitted patches have a test that actually fails without the fix |
 
 ## Submitting the unsent patches
 
@@ -34,6 +35,10 @@ which means the fork's base has drifted and a maintainer would see more than jus
 As of the last run that flags `pytrec_eval` (95 commits), `mujoco` (3) and `trec_eval` (2).
 
 `gh` is only required with `SUBMIT=1`; a dry run just reads branches.
+
+Read `patch-readiness.md` before submitting: six of the patches have a test confirmed to fail
+without the fix, and one (`exchange_calendars`) has a test that cannot fail on a current pandas
+and needs a note in its pull request.
 
 ## Regenerating
 
