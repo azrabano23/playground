@@ -1,0 +1,12 @@
+ggml-org/llama.cpp	master
+google-deepmind/mujoco	main
+ompl/ompl	main
+bashtage/linearmodels	main
+nautechsystems/nautilus_trader	develop
+sebp/scikit-survival	main
+usnistgov/trec_eval	main
+cvangysel/pytrec_eval	master
+rsheftel/pandas_market_calendars	master
+pmorissette/bt	master
+gerrymanoim/exchange_calendars	master
+embeddings-benchmark/mteb	main
