@@ -1,0 +1,44 @@
+NVIDIA/warp	1929	open	Document accepted output layouts for warp.fem.integrate() (GH-1912)
+NVIDIA/warp	1915	open	Accept a one-element output list in wp.map() (GH-1913)
+NVIDIA/warp	1914	closed	Fix fem.integrate() scalar output validation (GH-1912)
+NVIDIA/warp	1911	closed	Fix scaled BSR expression on the left of + and - (GH-1910)
+NVIDIA/warp	1833	closed	Rebuild Trimesh2D after edge flips in the elastic shape optimization example (GH-1804)
+NVIDIA/warp	1831	open	Fix svd2 U/V for scaled orthogonal inputs (GH-1734)
+NVIDIA/warp	1810	closed	Fix svd2 U/V for scaled orthogonal inputs (GH-1734)
+stanford-crfm/helm	4352	open	Score MedCalc-Bench lab and dosage categories instead of always 0
+stanford-crfm/helm	4350	open	Fix swapped prediction/reference order in KPI-EDGAR metric
+stanford-crfm/helm	4342	open	Add opt-in deduplication to the MedDialog scenario
+stanford-crfm/helm	4341	open	Fix final_number_exact_match regex extracting empty or comma-only matches
+NVIDIA-NeMo/Skills	1528	open	Apply BFCL Java/JavaScript preprocessing to simple_java and simple_javascript categories
+NVIDIA-NeMo/Skills	1527	open	Restore boxed-first default for relaxed answer extraction, add opt-in regex_first
+NVIDIA-NeMo/Skills	1526	open	Prefer explicit "Answer: X" line over letters inside boxed expressions in MCQ eval
+ArduPilot/pymavlink	1277	open	mavgen_cpp11: fix IndexError when an enum entry is a prefix of the enum name
+ArduPilot/pymavlink	1276	open	mavlogdump: keep one-off and burst messages when using --reduce-rate
+ArduPilot/pymavlink	1275	open	mavparm: honour use_tabs for params present in only one file
+statsmodels/statsmodels	10232	closed	BUG: Fix out-of-bounds write and dropped observations in fast_linbin
+statsmodels/statsmodels	10231	closed	BUG: Print seasonal MA order as an integer in SARIMAX summary
+statsmodels/statsmodels	10230	closed	BUG: Use final seasonal factor in Holt-Winters forecasts
+skypilot-org/skypilot	10660	open	[Verda] Do not send os_volume when image_id is a customized OS volume
+skypilot-org/skypilot	10659	open	[Core] Scope the enabled-clouds cache per user only for Slurm under submit_as_user
+skypilot-org/skypilot	10484	open	[k8s] Fix endpoint lookup when ingress-nginx is deployed in a custom namespace
+ai-dynamo/dynamo	13326	open	fix(logging): parse DYN_LOG filter directives when deriving engine log level
+ai-dynamo/dynamo	13318	open	docs: fix dead links and anchors left by the docs path re-alignment
+NeuroTechX/moabb	1177	closed	Fix one-tailed Wilcoxon p-values in compute_pvals_wilcoxon
+NeuroTechX/moabb	1140	closed	Add Nadeau & Bengio corrected resampled t-test (closes #1075)
+lballabio/QuantLib	2780	closed	Avoid NaN from Gauss-Laguerre quadrature at high orders
+anthropics/anthropic-sdk-python	1912	open	fix(tools): support positional-only parameters in beta_tool
+teslamotors/vehicle-command	475	open	dispatcher: recover from stale sessions after session-info verification fails
+TorchIO-project/torchio	1507	open	Align Motion rigid-step conventions with Affine
+sunlabuiuc/PyHealth	1197	open	fix: compute evaluation metrics once on pooled predictions, not per batch (#859)
+CamDavidsonPilon/lifelines	1696	open	Return the RMST estimator's sampling variance from restricted_mean_survival_time
+braindecode/braindecode	1128	closed	Write spec-compliant JSON in Hub zarr stores
+medplum/medplum	10293	closed	fix(graphql): preserve OperationOutcome in GraphQL error extensions
+flashinfer-ai/flashinfer	4548	open	fix: enumerate artifact downloads from checksums.txt so cute-dsl .so kernels are pre-fetched
+openai/openai-agents-python	4459	closed	feat: opt-in strip_defaults for ensure_strict_json_schema
+Project-MONAI/MONAI	8905	open	Make NormalizeIntensity invertible (#5647)
+NVIDIA/garak	1852	open	Add NonEngagement detector (#975)
+ndif-team/nnsight	671	closed	Fix MissedProviderError in .backward() with multiple invokers (#664)
+stanfordnlp/pyvene	239	open	Add ELECTRA model support (#46)
+UKGovernmentBEIS/inspect_evals	1765	closed	Register MedCalc-Bench eval
+decoderesearch/SAELens	697	open	Add covariance whitening normalization option (#647)
+TransformerLensOrg/TransformerLens	1369	closed	Add Direct Logit Attribution tool (#1263)
